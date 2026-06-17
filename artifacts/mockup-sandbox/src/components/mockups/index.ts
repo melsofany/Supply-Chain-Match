@@ -1,0 +1,1 @@
+export { SlateExecutive } from "./corp-slate/SlateExecutive";
