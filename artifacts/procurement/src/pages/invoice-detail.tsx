@@ -1,5 +1,6 @@
 import { useParams, useLocation } from "wouter";
 import { ArrowLeft, ExternalLink, Printer } from "lucide-react";
+import { PrintHeader } from "@/components/print-header";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetInvoice,
@@ -85,11 +86,7 @@ export default function InvoiceDetail() {
         </div>
       </div>
 
-      {/* Print Header */}
-      <div className="hidden print:block text-center mb-6">
-        <h1 className="text-3xl font-bold">فاتورة</h1>
-        <p className="text-xl mt-1">{invoice.invoiceNumber}</p>
-      </div>
+      <PrintHeader title="فـاتـورة" subtitle={invoice.invoiceNumber} />
 
       {/* Invoice Details */}
       <Card>

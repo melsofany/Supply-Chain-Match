@@ -1,5 +1,6 @@
 import { useParams, useLocation } from "wouter";
 import { ArrowLeft, CheckCircle, PenLine, FileText, AlertTriangle, Printer, ExternalLink } from "lucide-react";
+import { PrintHeader } from "@/components/print-header";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetDeliveryNote,
@@ -205,11 +206,7 @@ export default function DeliveryNoteDetail() {
         </div>
       </div>
 
-      {/* Print Header (visible only when printing) */}
-      <div className="hidden print:block text-center mb-6">
-        <h1 className="text-3xl font-bold">إذن التسليم</h1>
-        <p className="text-xl mt-1">{dn.dnNumber}</p>
-      </div>
+      <PrintHeader title="إذن التسليم" subtitle={dn.dnNumber} />
 
       {/* Finance approval warning */}
       {(dn.status === "draft" || dn.status === "pending_finance") && (

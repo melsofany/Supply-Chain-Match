@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Plus, Pencil, Trash2, CheckCircle, XCircle, AlertTriangle, TrendingDown, History } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, CheckCircle, XCircle, AlertTriangle, TrendingDown, History, Printer } from "lucide-react";
+import { PrintHeader } from "@/components/print-header";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetQuotation,
@@ -283,7 +284,8 @@ export default function QuotationDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <PrintHeader title="عرض سعر" subtitle={quotation.quotationNumber ?? `#${quotation.id}`} />
+      <div className="flex items-center gap-3 print:hidden">
         <Button variant="ghost" size="icon" onClick={() => setLocation("/quotations")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -300,21 +302,25 @@ export default function QuotationDetail() {
           <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${STATUS_COLORS[quotation.status] ?? ""}`}>
             {quotation.status}
           </span>
+          <Button size="sm" variant="outline" onClick={() => window.print()}>
+            <Printer className="h-4 w-4 mr-1.5" />
+            طباعة
+          </Button>
           {(quotation.status === "draft" || quotation.status === "sent") && (
             <>
               <Button variant="outline" size="sm" onClick={handleReject} disabled={rejectMutation.isPending} data-testid="button-reject-quotation">
                 <XCircle className="h-4 w-4 mr-1.5" />
-                Reject
+                رفض
               </Button>
               <Button size="sm" onClick={handleApprove} disabled={approveMutation.isPending} data-testid="button-approve-quotation">
                 <CheckCircle className="h-4 w-4 mr-1.5" />
-                Approve
+                اعتماد
               </Button>
             </>
           )}
           {quotation.status === "approved" && (
             <Button size="sm" onClick={handleCreateCustomerPo} disabled={createCustomerPo.isPending} data-testid="button-create-customer-po">
-              Create Customer PO
+              إنشاء أمر شراء
             </Button>
           )}
         </div>

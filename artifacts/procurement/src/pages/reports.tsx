@@ -5,8 +5,9 @@ import {
   TrendingUp, Search, ExternalLink, ChevronUp, ChevronDown,
   DollarSign, ShoppingCart, Truck, AlertCircle, CheckCircle2,
   Clock, ArrowUpRight, ArrowDownRight, Minus, AlertTriangle,
-  RefreshCw, FileText, Target,
+  RefreshCw, FileText, Target, Printer,
 } from "lucide-react";
+import { PrintHeader } from "@/components/print-header";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -282,8 +283,9 @@ export default function Reports() {
 
   return (
     <div className="space-y-5">
+      <PrintHeader title="التقارير الشاملة" subtitle={`تاريخ الطباعة: ${new Date().toLocaleDateString("ar-EG")}`} />
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 print:hidden">
         <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">التقارير الشاملة</h1>
           <p className="text-muted-foreground text-sm mt-0.5">تحليل كامل لجميع عمليات المنظومة</p>
@@ -293,6 +295,7 @@ export default function Reports() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
             <Input className="pr-9" placeholder="بحث في التقارير..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
+          <Button variant="outline" size="icon" onClick={() => window.print()} title="طباعة"><Printer className="h-4 w-4" /></Button>
           <Button variant="outline" size="icon" onClick={() => { refetch(); }} title="تحديث"><RefreshCw className="h-4 w-4" /></Button>
         </div>
       </div>
