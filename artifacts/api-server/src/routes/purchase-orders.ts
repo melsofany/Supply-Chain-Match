@@ -20,6 +20,28 @@ function parseAmount(v: string | null | undefined): number | null {
   return v != null ? Number(v) : null;
 }
 
+function enrichSupplierPo(po: {
+  totalAmount: string | null;
+  taxInsuranceRate: string;
+  operatingCost: string;
+  [key: string]: any;
+}) {
+  const grossCost = po.totalAmount != null ? Number(po.totalAmount) : 0;
+  const taxInsuranceRate = Number(po.taxInsuranceRate);
+  const operatingCost = Number(po.operatingCost);
+  const taxInsuranceAmount = Math.round(grossCost * taxInsuranceRate * 100) / 100;
+  const totalCost = Math.round((grossCost + taxInsuranceAmount + operatingCost) * 100) / 100;
+
+  return {
+    ...po,
+    totalAmount: parseAmount(po.totalAmount),
+    taxInsuranceRate,
+    operatingCost,
+    taxInsuranceAmount,
+    totalCost,
+  };
+}
+
 // ─── CUSTOMER POs ─────────────────────────────────────────────────────────────
 
 router.get("/customer-pos", async (req, res): Promise<void> => {
@@ -48,7 +70,9 @@ router.post("/customer-pos", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [po] = await db.insert(customerPosTable).values(parsed.data).returning();
+  const ins: any = { ...parsed.data };
+  if (ins.totalAmount != null) ins.totalAmount = String(ins.totalAmount);
+  const [po] = await db.insert(customerPosTable).values(ins).returning();
   res.status(201).json({ ...po, customerName: null, totalAmount: parseAmount(po.totalAmount) });
 });
 
@@ -92,9 +116,11 @@ router.patch("/customer-pos/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const upd: any = { ...parsed.data };
+  if (upd.totalAmount != null) upd.totalAmount = String(upd.totalAmount);
   const [po] = await db
     .update(customerPosTable)
-    .set(parsed.data)
+    .set(upd)
     .where(eq(customerPosTable.id, params.data.id))
     .returning();
   if (!po) {
@@ -116,6 +142,8 @@ router.get("/supplier-pos", async (req, res): Promise<void> => {
       poNumber: supplierPosTable.poNumber,
       status: supplierPosTable.status,
       totalAmount: supplierPosTable.totalAmount,
+      taxInsuranceRate: supplierPosTable.taxInsuranceRate,
+      operatingCost: supplierPosTable.operatingCost,
       notes: supplierPosTable.notes,
       createdAt: supplierPosTable.createdAt,
     })
@@ -123,7 +151,7 @@ router.get("/supplier-pos", async (req, res): Promise<void> => {
     .leftJoin(suppliersTable, eq(supplierPosTable.supplierId, suppliersTable.id))
     .orderBy(supplierPosTable.createdAt);
 
-  res.json(rows.map((r) => ({ ...r, totalAmount: parseAmount(r.totalAmount) })));
+  res.json(rows.map((r) => enrichSupplierPo(r)));
 });
 
 router.post("/supplier-pos", async (req, res): Promise<void> => {
@@ -132,8 +160,12 @@ router.post("/supplier-pos", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [po] = await db.insert(supplierPosTable).values(parsed.data).returning();
-  res.status(201).json({ ...po, supplierName: null, totalAmount: parseAmount(po.totalAmount) });
+  const ins: any = { ...parsed.data };
+  if (ins.totalAmount != null) ins.totalAmount = String(ins.totalAmount);
+  if (ins.taxInsuranceRate != null) ins.taxInsuranceRate = String(ins.taxInsuranceRate);
+  if (ins.operatingCost != null) ins.operatingCost = String(ins.operatingCost);
+  const [po] = await db.insert(supplierPosTable).values(ins).returning();
+  res.status(201).json(enrichSupplierPo({ ...po, supplierName: null }));
 });
 
 router.get("/supplier-pos/:id", async (req, res): Promise<void> => {
@@ -151,6 +183,8 @@ router.get("/supplier-pos/:id", async (req, res): Promise<void> => {
       poNumber: supplierPosTable.poNumber,
       status: supplierPosTable.status,
       totalAmount: supplierPosTable.totalAmount,
+      taxInsuranceRate: supplierPosTable.taxInsuranceRate,
+      operatingCost: supplierPosTable.operatingCost,
       notes: supplierPosTable.notes,
       createdAt: supplierPosTable.createdAt,
     })
@@ -162,7 +196,7 @@ router.get("/supplier-pos/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Supplier PO not found" });
     return;
   }
-  res.json({ ...po, totalAmount: parseAmount(po.totalAmount) });
+  res.json(enrichSupplierPo(po));
 });
 
 router.patch("/supplier-pos/:id", async (req, res): Promise<void> => {
@@ -176,16 +210,20 @@ router.patch("/supplier-pos/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const upd: any = { ...parsed.data };
+  if (upd.totalAmount != null) upd.totalAmount = String(upd.totalAmount);
+  if (upd.taxInsuranceRate != null) upd.taxInsuranceRate = String(upd.taxInsuranceRate);
+  if (upd.operatingCost != null) upd.operatingCost = String(upd.operatingCost);
   const [po] = await db
     .update(supplierPosTable)
-    .set(parsed.data)
+    .set(upd)
     .where(eq(supplierPosTable.id, params.data.id))
     .returning();
   if (!po) {
     res.status(404).json({ error: "Supplier PO not found" });
     return;
   }
-  res.json(UpdateSupplierPoResponse.parse({ ...po, supplierName: null, totalAmount: parseAmount(po.totalAmount) }));
+  res.json(UpdateSupplierPoResponse.parse(enrichSupplierPo({ ...po, supplierName: null })));
 });
 
 export default router;

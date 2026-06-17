@@ -661,6 +661,8 @@ export const ListSupplierPosResponseItem = zod.object({
   "poNumber": zod.string().nullish(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']),
   "totalAmount": zod.number().nullish(),
+  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (default 0.03 = 3%)'),
+  "operatingCost": zod.number().describe('Additional operating costs'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -676,6 +678,8 @@ export const CreateSupplierPoBody = zod.object({
   "poNumber": zod.string().optional(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']).optional(),
   "totalAmount": zod.number().optional(),
+  "taxInsuranceRate": zod.number().optional(),
+  "operatingCost": zod.number().optional(),
   "notes": zod.string().optional()
 })
 
@@ -695,6 +699,8 @@ export const GetSupplierPoResponse = zod.object({
   "poNumber": zod.string().nullish(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']),
   "totalAmount": zod.number().nullish(),
+  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (default 0.03 = 3%)'),
+  "operatingCost": zod.number().describe('Additional operating costs'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -711,6 +717,8 @@ export const UpdateSupplierPoBody = zod.object({
   "poNumber": zod.string().optional(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']).optional(),
   "totalAmount": zod.number().optional(),
+  "taxInsuranceRate": zod.number().optional(),
+  "operatingCost": zod.number().optional(),
   "notes": zod.string().optional()
 })
 
@@ -722,7 +730,135 @@ export const UpdateSupplierPoResponse = zod.object({
   "poNumber": zod.string().nullish(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']),
   "totalAmount": zod.number().nullish(),
+  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (default 0.03 = 3%)'),
+  "operatingCost": zod.number().describe('Additional operating costs'),
   "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List item pricing history with optional search
+ */
+export const listPriceHistoryQueryLimitDefault = 50;
+
+export const ListPriceHistoryQueryParams = zod.object({
+  "q": zod.coerce.string().optional().describe('Search by item description (case-insensitive partial match)'),
+  "supplierId": zod.coerce.number().optional().describe('Filter by supplier'),
+  "limit": zod.coerce.number().default(listPriceHistoryQueryLimitDefault)
+})
+
+export const ListPriceHistoryResponseItem = zod.object({
+  "id": zod.number(),
+  "itemDescription": zod.string(),
+  "supplierId": zod.number().nullish(),
+  "supplierName": zod.string().nullish(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string().nullish(),
+  "quotationId": zod.number().nullish(),
+  "unitPrice": zod.number(),
+  "quantity": zod.number().nullish(),
+  "unit": zod.string().nullish(),
+  "resultedInPo": zod.boolean(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListPriceHistoryResponse = zod.array(ListPriceHistoryResponseItem)
+
+
+/**
+ * @summary Get pricing suggestions for an item description
+ */
+export const GetPriceHistorySuggestionsQueryParams = zod.object({
+  "q": zod.coerce.string().describe('Item description to search for pricing history')
+})
+
+export const GetPriceHistorySuggestionsResponse = zod.object({
+  "query": zod.string(),
+  "hasWarning": zod.boolean().describe('True if a previous quotation at higher price did not result in a PO'),
+  "warningMessage": zod.string().nullish(),
+  "lowestSuccessfulPrice": zod.number().nullish().describe('Lowest price that actually resulted in a PO'),
+  "highestFailedPrice": zod.number().nullish().describe('Highest price that did NOT result in a PO (competitor probably beat it)'),
+  "suggestedMaxPrice": zod.number().nullish().describe('Suggested ceiling price (below the highest failed price)'),
+  "entries": zod.array(zod.object({
+  "id": zod.number(),
+  "itemDescription": zod.string(),
+  "supplierId": zod.number().nullish(),
+  "supplierName": zod.string().nullish(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string().nullish(),
+  "quotationId": zod.number().nullish(),
+  "unitPrice": zod.number(),
+  "quantity": zod.number().nullish(),
+  "unit": zod.string().nullish(),
+  "resultedInPo": zod.boolean(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+}))
+})
+
+
+/**
+ * @summary Overall accounting summary (revenue, cost, profit)
+ */
+export const GetAccountingSummaryResponse = zod.object({
+  "totalRevenue": zod.number(),
+  "totalCost": zod.number(),
+  "totalProfit": zod.number(),
+  "avgProfitMargin": zod.number(),
+  "fulfilledCount": zod.number(),
+  "totalTaxInsurance": zod.number(),
+  "totalOperatingCost": zod.number()
+})
+
+
+/**
+ * @summary List all supplier POs with full cost analysis
+ */
+export const ListPoAnalysisResponseItem = zod.object({
+  "supplierPoId": zod.number(),
+  "supplierPoNumber": zod.string().nullable(),
+  "supplierId": zod.number(),
+  "supplierName": zod.string().nullable(),
+  "customerPoId": zod.number().nullish(),
+  "customerPoNumber": zod.string().nullish(),
+  "status": zod.string(),
+  "grossCost": zod.number().describe('Supplier PO totalAmount (before tax\/insurance\/operating costs)'),
+  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (e.g. 0.03 = 3%)'),
+  "taxInsuranceAmount": zod.number().describe('grossCost \* taxInsuranceRate'),
+  "operatingCost": zod.number().describe('Manual operating costs added to this PO'),
+  "totalCost": zod.number().describe('grossCost + taxInsuranceAmount + operatingCost'),
+  "revenue": zod.number().nullish().describe('Linked customer PO amount (selling price to customer)'),
+  "profit": zod.number().nullish().describe('revenue - totalCost'),
+  "profitMargin": zod.number().nullish().describe('profit \/ revenue \* 100'),
+  "createdAt": zod.coerce.date()
+})
+export const ListPoAnalysisResponse = zod.array(ListPoAnalysisResponseItem)
+
+
+/**
+ * @summary Get cost breakdown and P&L for a specific supplier PO
+ */
+export const GetPoAnalysisParams = zod.object({
+  "supplierPoId": zod.coerce.number()
+})
+
+export const GetPoAnalysisResponse = zod.object({
+  "supplierPoId": zod.number(),
+  "supplierPoNumber": zod.string().nullable(),
+  "supplierId": zod.number(),
+  "supplierName": zod.string().nullable(),
+  "customerPoId": zod.number().nullish(),
+  "customerPoNumber": zod.string().nullish(),
+  "status": zod.string(),
+  "grossCost": zod.number().describe('Supplier PO totalAmount (before tax\/insurance\/operating costs)'),
+  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (e.g. 0.03 = 3%)'),
+  "taxInsuranceAmount": zod.number().describe('grossCost \* taxInsuranceRate'),
+  "operatingCost": zod.number().describe('Manual operating costs added to this PO'),
+  "totalCost": zod.number().describe('grossCost + taxInsuranceAmount + operatingCost'),
+  "revenue": zod.number().nullish().describe('Linked customer PO amount (selling price to customer)'),
+  "profit": zod.number().nullish().describe('revenue - totalCost'),
+  "profitMargin": zod.number().nullish().describe('profit \/ revenue \* 100'),
   "createdAt": zod.coerce.date()
 })
 

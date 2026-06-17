@@ -149,10 +149,9 @@ router.post("/inquiries/:id/items", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const [item] = await db
-    .insert(inquiryItemsTable)
-    .values({ ...parsed.data, inquiryId: params.data.id })
-    .returning();
+  const itemIns: any = { ...parsed.data, inquiryId: params.data.id };
+  if (itemIns.quantity != null) itemIns.quantity = String(itemIns.quantity);
+  const [item] = await db.insert(inquiryItemsTable).values(itemIns).returning();
   res.status(201).json({ ...item, quantity: Number(item.quantity) });
 });
 
@@ -167,9 +166,11 @@ router.patch("/inquiries/:id/items/:itemId", async (req, res): Promise<void> => 
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const itemUpd: any = { ...parsed.data };
+  if (itemUpd.quantity != null) itemUpd.quantity = String(itemUpd.quantity);
   const [item] = await db
     .update(inquiryItemsTable)
-    .set(parsed.data)
+    .set(itemUpd)
     .where(eq(inquiryItemsTable.id, params.data.itemId))
     .returning();
   if (!item) {

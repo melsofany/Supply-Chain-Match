@@ -13,5 +13,7 @@ export interface SupplierPoInput {
   poNumber?: string;
   status?: SupplierPoInputStatus;
   totalAmount?: number;
+  taxInsuranceRate?: number;
+  operatingCost?: number;
   notes?: string;
 }

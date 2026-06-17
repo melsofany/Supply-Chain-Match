@@ -8,7 +8,8 @@ import {
   FileText,
   ShoppingCart,
   Truck,
-  Menu
+  Menu,
+  Calculator,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/quotations", label: "Quotations", icon: FileText },
   { href: "/customer-pos", label: "Customer POs", icon: ShoppingCart },
   { href: "/supplier-pos", label: "Supplier POs", icon: Truck },
+  { href: "/accounting", label: "Accounting", icon: Calculator },
 ];
 
 export function Sidebar() {

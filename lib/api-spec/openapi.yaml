@@ -24,6 +24,10 @@ tags:
     description: Supplier purchase orders
   - name: dashboard
     description: Dashboard summaries
+  - name: price-history
+    description: Item pricing history and suggestions
+  - name: accounting
+    description: Accounting, cost analysis and P&L
 
 paths:
   /healthz:
@@ -737,6 +741,108 @@ paths:
               schema:
                 $ref: "#/components/schemas/SupplierPo"
 
+  # ─── PRICE HISTORY ────────────────────────────────────────────────────────────
+  /price-history:
+    get:
+      operationId: listPriceHistory
+      tags: [price-history]
+      summary: List item pricing history with optional search
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Search by item description (case-insensitive partial match)
+        - name: supplierId
+          in: query
+          schema:
+            type: integer
+          description: Filter by supplier
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: List of price history entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PriceHistoryEntry"
+
+  /price-history/suggestions:
+    get:
+      operationId: getPriceHistorySuggestions
+      tags: [price-history]
+      summary: Get pricing suggestions for an item description
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Item description to search for pricing history
+      responses:
+        "200":
+          description: Price suggestions with smart warnings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PriceSuggestions"
+
+  # ─── ACCOUNTING ────────────────────────────────────────────────────────────────
+  /accounting/summary:
+    get:
+      operationId: getAccountingSummary
+      tags: [accounting]
+      summary: Overall accounting summary (revenue, cost, profit)
+      responses:
+        "200":
+          description: Accounting summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountingSummary"
+
+  /accounting/po-analysis:
+    get:
+      operationId: listPoAnalysis
+      tags: [accounting]
+      summary: List all supplier POs with full cost analysis
+      responses:
+        "200":
+          description: List of PO analyses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PoAnalysis"
+
+  /accounting/po-analysis/{supplierPoId}:
+    get:
+      operationId: getPoAnalysis
+      tags: [accounting]
+      summary: Get cost breakdown and P&L for a specific supplier PO
+      parameters:
+        - name: supplierPoId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: PO analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoAnalysis"
+        "404":
+          description: Not found
+
   # ─── DASHBOARD ────────────────────────────────────────────────────────────────
   /dashboard/summary:
     get:
@@ -1229,7 +1335,7 @@ components:
     # ─── SUPPLIER PO ───────────────────────────────────────────────────────────
     SupplierPo:
       type: object
-      required: [id, supplierId, status, createdAt]
+      required: [id, supplierId, status, taxInsuranceRate, operatingCost, createdAt]
       properties:
         id:
           type: integer
@@ -1246,6 +1352,12 @@ components:
           enum: [draft, sent, confirmed, delivered, cancelled]
         totalAmount:
           type: ["number", "null"]
+        taxInsuranceRate:
+          type: number
+          description: Rate for tax + insurance (default 0.03 = 3%)
+        operatingCost:
+          type: number
+          description: Additional operating costs
         notes:
           type: ["string", "null"]
         createdAt:
@@ -1267,6 +1379,10 @@ components:
           enum: [draft, sent, confirmed, delivered, cancelled]
         totalAmount:
           type: number
+        taxInsuranceRate:
+          type: number
+        operatingCost:
+          type: number
         notes:
           type: string
 
@@ -1280,10 +1396,138 @@ components:
           enum: [draft, sent, confirmed, delivered, cancelled]
         totalAmount:
           type: number
+        taxInsuranceRate:
+          type: number
+        operatingCost:
+          type: number
         notes:
           type: string
 
-    # ─── DASHBOARD ─────────────────────────────────────────────────────────────
+    # ─── PRICE HISTORY ─────────────────────────────────────────────────────────
+    PriceSuggestions:
+      type: object
+      required: [query, entries, hasWarning]
+      properties:
+        query:
+          type: string
+        hasWarning:
+          type: boolean
+          description: True if a previous quotation at higher price did not result in a PO
+        warningMessage:
+          type: ["string", "null"]
+        lowestSuccessfulPrice:
+          type: ["number", "null"]
+          description: Lowest price that actually resulted in a PO
+        highestFailedPrice:
+          type: ["number", "null"]
+          description: Highest price that did NOT result in a PO (competitor probably beat it)
+        suggestedMaxPrice:
+          type: ["number", "null"]
+          description: Suggested ceiling price (below the highest failed price)
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/PriceHistoryEntry"
+
+    PriceHistoryEntry:
+      type: object
+      required: [id, itemDescription, unitPrice, resultedInPo, createdAt]
+      properties:
+        id:
+          type: integer
+        itemDescription:
+          type: string
+        supplierId:
+          type: ["integer", "null"]
+        supplierName:
+          type: ["string", "null"]
+        customerId:
+          type: ["integer", "null"]
+        customerName:
+          type: ["string", "null"]
+        quotationId:
+          type: ["integer", "null"]
+        unitPrice:
+          type: number
+        quantity:
+          type: ["number", "null"]
+        unit:
+          type: ["string", "null"]
+        resultedInPo:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+  # ─── ACCOUNTING ─────────────────────────────────────────────────────────────
+    PoAnalysis:
+      type: object
+      required: [supplierPoId, supplierPoNumber, supplierId, supplierName, status, grossCost, taxInsuranceRate, taxInsuranceAmount, operatingCost, totalCost, createdAt]
+      properties:
+        supplierPoId:
+          type: integer
+        supplierPoNumber:
+          type: ["string", "null"]
+        supplierId:
+          type: integer
+        supplierName:
+          type: ["string", "null"]
+        customerPoId:
+          type: ["integer", "null"]
+        customerPoNumber:
+          type: ["string", "null"]
+        status:
+          type: string
+        grossCost:
+          type: number
+          description: Supplier PO totalAmount (before tax/insurance/operating costs)
+        taxInsuranceRate:
+          type: number
+          description: Rate for tax + insurance (e.g. 0.03 = 3%)
+        taxInsuranceAmount:
+          type: number
+          description: grossCost * taxInsuranceRate
+        operatingCost:
+          type: number
+          description: Manual operating costs added to this PO
+        totalCost:
+          type: number
+          description: grossCost + taxInsuranceAmount + operatingCost
+        revenue:
+          type: ["number", "null"]
+          description: Linked customer PO amount (selling price to customer)
+        profit:
+          type: ["number", "null"]
+          description: revenue - totalCost
+        profitMargin:
+          type: ["number", "null"]
+          description: profit / revenue * 100
+        createdAt:
+          type: string
+          format: date-time
+
+    AccountingSummary:
+      type: object
+      required: [totalRevenue, totalCost, totalProfit, avgProfitMargin, fulfilledCount, totalTaxInsurance, totalOperatingCost]
+      properties:
+        totalRevenue:
+          type: number
+        totalCost:
+          type: number
+        totalProfit:
+          type: number
+        avgProfitMargin:
+          type: number
+        fulfilledCount:
+          type: integer
+        totalTaxInsurance:
+          type: number
+        totalOperatingCost:
+          type: number
+
+  # ─── DASHBOARD ─────────────────────────────────────────────────────────────
     DashboardSummary:
       type: object
       required: [totalCustomers, totalSuppliers, openInquiries, pendingQuotations, activeCustomerPos, activeSupplierPos, totalRevenue]

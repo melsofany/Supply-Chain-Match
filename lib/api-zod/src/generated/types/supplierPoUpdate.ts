@@ -11,5 +11,7 @@ export interface SupplierPoUpdate {
   poNumber?: string;
   status?: SupplierPoUpdateStatus;
   totalAmount?: number;
+  taxInsuranceRate?: number;
+  operatingCost?: number;
   notes?: string;
 }

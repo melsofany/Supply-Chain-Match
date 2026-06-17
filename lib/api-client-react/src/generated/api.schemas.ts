@@ -410,6 +410,10 @@ export interface SupplierPo {
   status: SupplierPoStatus;
   /** @nullable */
   totalAmount?: number | null;
+  /** Rate for tax + insurance (default 0.03 = 3%) */
+  taxInsuranceRate: number;
+  /** Additional operating costs */
+  operatingCost: number;
   /** @nullable */
   notes?: string | null;
   createdAt: string;
@@ -432,6 +436,8 @@ export interface SupplierPoInput {
   poNumber?: string;
   status?: SupplierPoInputStatus;
   totalAmount?: number;
+  taxInsuranceRate?: number;
+  operatingCost?: number;
   notes?: string;
 }
 
@@ -450,7 +456,107 @@ export interface SupplierPoUpdate {
   poNumber?: string;
   status?: SupplierPoUpdateStatus;
   totalAmount?: number;
+  taxInsuranceRate?: number;
+  operatingCost?: number;
   notes?: string;
+}
+
+export interface PriceHistoryEntry {
+  id: number;
+  itemDescription: string;
+  /** @nullable */
+  supplierId?: number | null;
+  /** @nullable */
+  supplierName?: string | null;
+  /** @nullable */
+  customerId?: number | null;
+  /** @nullable */
+  customerName?: string | null;
+  /** @nullable */
+  quotationId?: number | null;
+  unitPrice: number;
+  /** @nullable */
+  quantity?: number | null;
+  /** @nullable */
+  unit?: string | null;
+  resultedInPo: boolean;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface PriceSuggestions {
+  query: string;
+  /** True if a previous quotation at higher price did not result in a PO */
+  hasWarning: boolean;
+  /** @nullable */
+  warningMessage?: string | null;
+  /**
+     * Lowest price that actually resulted in a PO
+     * @nullable
+     */
+  lowestSuccessfulPrice?: number | null;
+  /**
+     * Highest price that did NOT result in a PO (competitor probably beat it)
+     * @nullable
+     */
+  highestFailedPrice?: number | null;
+  /**
+     * Suggested ceiling price (below the highest failed price)
+     * @nullable
+     */
+  suggestedMaxPrice?: number | null;
+  entries: PriceHistoryEntry[];
+}
+
+export interface PoAnalysis {
+  supplierPoId: number;
+  /** @nullable */
+  supplierPoNumber: string | null;
+  supplierId: number;
+  /** @nullable */
+  supplierName: string | null;
+  /** @nullable */
+  customerPoId?: number | null;
+  /** @nullable */
+  customerPoNumber?: string | null;
+  status: string;
+  /** Supplier PO totalAmount (before tax/insurance/operating costs) */
+  grossCost: number;
+  /** Rate for tax + insurance (e.g. 0.03 = 3%) */
+  taxInsuranceRate: number;
+  /** grossCost * taxInsuranceRate */
+  taxInsuranceAmount: number;
+  /** Manual operating costs added to this PO */
+  operatingCost: number;
+  /** grossCost + taxInsuranceAmount + operatingCost */
+  totalCost: number;
+  /**
+     * Linked customer PO amount (selling price to customer)
+     * @nullable
+     */
+  revenue?: number | null;
+  /**
+     * revenue - totalCost
+     * @nullable
+     */
+  profit?: number | null;
+  /**
+     * profit / revenue * 100
+     * @nullable
+     */
+  profitMargin?: number | null;
+  createdAt: string;
+}
+
+export interface AccountingSummary {
+  totalRevenue: number;
+  totalCost: number;
+  totalProfit: number;
+  avgProfitMargin: number;
+  fulfilledCount: number;
+  totalTaxInsurance: number;
+  totalOperatingCost: number;
 }
 
 export interface StatusCount {
@@ -492,4 +598,23 @@ export interface ActivityItem {
   status?: string | null;
   createdAt: string;
 }
+
+export type ListPriceHistoryParams = {
+/**
+ * Search by item description (case-insensitive partial match)
+ */
+q?: string;
+/**
+ * Filter by supplier
+ */
+supplierId?: number;
+limit?: number;
+};
+
+export type GetPriceHistorySuggestionsParams = {
+/**
+ * Item description to search for pricing history
+ */
+q: string;
+};
 

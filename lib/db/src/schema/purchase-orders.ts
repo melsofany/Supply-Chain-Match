@@ -21,6 +21,8 @@ export const supplierPosTable = pgTable("supplier_pos", {
   poNumber: text("po_number"),
   status: text("status").notNull().default("draft"),
   totalAmount: numeric("total_amount", { precision: 15, scale: 2 }),
+  taxInsuranceRate: numeric("tax_insurance_rate", { precision: 6, scale: 4 }).notNull().default("0.03"),
+  operatingCost: numeric("operating_cost", { precision: 15, scale: 2 }).notNull().default("0"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

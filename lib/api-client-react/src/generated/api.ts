@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AccountingSummary,
   ActivityItem,
   Customer,
   CustomerInput,
@@ -28,6 +29,7 @@ import type {
   CustomerPoUpdate,
   CustomerUpdate,
   DashboardSummary,
+  GetPriceHistorySuggestionsParams,
   HealthStatus,
   Inquiry,
   InquiryInput,
@@ -36,6 +38,10 @@ import type {
   InquiryItemUpdate,
   InquiryUpdate,
   InquiryWithItems,
+  ListPriceHistoryParams,
+  PoAnalysis,
+  PriceHistoryEntry,
+  PriceSuggestions,
   Quotation,
   QuotationInput,
   QuotationItem,
@@ -2777,6 +2783,405 @@ export const useUpdateSupplierPo = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getUpdateSupplierPoMutationOptions(options));
     }
+
+export const getListPriceHistoryUrl = (params?: ListPriceHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/price-history?${stringifiedParams}` : `/api/price-history`
+}
+
+/**
+ * @summary List item pricing history with optional search
+ */
+export const listPriceHistory = async (params?: ListPriceHistoryParams, options?: RequestInit): Promise<PriceHistoryEntry[]> => {
+
+  return customFetch<PriceHistoryEntry[]>(getListPriceHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPriceHistoryQueryKey = (params?: ListPriceHistoryParams,) => {
+    return [
+    `/api/price-history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListPriceHistoryQueryOptions = <TData = Awaited<ReturnType<typeof listPriceHistory>>, TError = ErrorType<unknown>>(params?: ListPriceHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPriceHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPriceHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPriceHistory>>> = ({ signal }) => listPriceHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPriceHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPriceHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof listPriceHistory>>>
+export type ListPriceHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List item pricing history with optional search
+ */
+
+export function useListPriceHistory<TData = Awaited<ReturnType<typeof listPriceHistory>>, TError = ErrorType<unknown>>(
+ params?: ListPriceHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPriceHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPriceHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetPriceHistorySuggestionsUrl = (params: GetPriceHistorySuggestionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : value.toString())
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/price-history/suggestions?${stringifiedParams}` : `/api/price-history/suggestions`
+}
+
+/**
+ * @summary Get pricing suggestions for an item description
+ */
+export const getPriceHistorySuggestions = async (params: GetPriceHistorySuggestionsParams, options?: RequestInit): Promise<PriceSuggestions> => {
+
+  return customFetch<PriceSuggestions>(getGetPriceHistorySuggestionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPriceHistorySuggestionsQueryKey = (params?: GetPriceHistorySuggestionsParams,) => {
+    return [
+    `/api/price-history/suggestions`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetPriceHistorySuggestionsQueryOptions = <TData = Awaited<ReturnType<typeof getPriceHistorySuggestions>>, TError = ErrorType<unknown>>(params: GetPriceHistorySuggestionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPriceHistorySuggestions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPriceHistorySuggestionsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPriceHistorySuggestions>>> = ({ signal }) => getPriceHistorySuggestions(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPriceHistorySuggestions>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPriceHistorySuggestionsQueryResult = NonNullable<Awaited<ReturnType<typeof getPriceHistorySuggestions>>>
+export type GetPriceHistorySuggestionsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get pricing suggestions for an item description
+ */
+
+export function useGetPriceHistorySuggestions<TData = Awaited<ReturnType<typeof getPriceHistorySuggestions>>, TError = ErrorType<unknown>>(
+ params: GetPriceHistorySuggestionsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPriceHistorySuggestions>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPriceHistorySuggestionsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetAccountingSummaryUrl = () => {
+
+
+
+
+  return `/api/accounting/summary`
+}
+
+/**
+ * @summary Overall accounting summary (revenue, cost, profit)
+ */
+export const getAccountingSummary = async ( options?: RequestInit): Promise<AccountingSummary> => {
+
+  return customFetch<AccountingSummary>(getGetAccountingSummaryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAccountingSummaryQueryKey = () => {
+    return [
+    `/api/accounting/summary`
+    ] as const;
+    }
+
+
+export const getGetAccountingSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getAccountingSummary>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountingSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAccountingSummaryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAccountingSummary>>> = ({ signal }) => getAccountingSummary({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAccountingSummary>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAccountingSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountingSummary>>>
+export type GetAccountingSummaryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Overall accounting summary (revenue, cost, profit)
+ */
+
+export function useGetAccountingSummary<TData = Awaited<ReturnType<typeof getAccountingSummary>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAccountingSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAccountingSummaryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListPoAnalysisUrl = () => {
+
+
+
+
+  return `/api/accounting/po-analysis`
+}
+
+/**
+ * @summary List all supplier POs with full cost analysis
+ */
+export const listPoAnalysis = async ( options?: RequestInit): Promise<PoAnalysis[]> => {
+
+  return customFetch<PoAnalysis[]>(getListPoAnalysisUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListPoAnalysisQueryKey = () => {
+    return [
+    `/api/accounting/po-analysis`
+    ] as const;
+    }
+
+
+export const getListPoAnalysisQueryOptions = <TData = Awaited<ReturnType<typeof listPoAnalysis>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPoAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListPoAnalysisQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listPoAnalysis>>> = ({ signal }) => listPoAnalysis({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listPoAnalysis>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListPoAnalysisQueryResult = NonNullable<Awaited<ReturnType<typeof listPoAnalysis>>>
+export type ListPoAnalysisQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all supplier POs with full cost analysis
+ */
+
+export function useListPoAnalysis<TData = Awaited<ReturnType<typeof listPoAnalysis>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listPoAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListPoAnalysisQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetPoAnalysisUrl = (supplierPoId: number,) => {
+
+
+
+
+  return `/api/accounting/po-analysis/${supplierPoId}`
+}
+
+/**
+ * @summary Get cost breakdown and P&L for a specific supplier PO
+ */
+export const getPoAnalysis = async (supplierPoId: number, options?: RequestInit): Promise<PoAnalysis> => {
+
+  return customFetch<PoAnalysis>(getGetPoAnalysisUrl(supplierPoId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPoAnalysisQueryKey = (supplierPoId: number,) => {
+    return [
+    `/api/accounting/po-analysis/${supplierPoId}`
+    ] as const;
+    }
+
+
+export const getGetPoAnalysisQueryOptions = <TData = Awaited<ReturnType<typeof getPoAnalysis>>, TError = ErrorType<void>>(supplierPoId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPoAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPoAnalysisQueryKey(supplierPoId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPoAnalysis>>> = ({ signal }) => getPoAnalysis(supplierPoId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(supplierPoId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPoAnalysis>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPoAnalysisQueryResult = NonNullable<Awaited<ReturnType<typeof getPoAnalysis>>>
+export type GetPoAnalysisQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get cost breakdown and P&L for a specific supplier PO
+ */
+
+export function useGetPoAnalysis<TData = Awaited<ReturnType<typeof getPoAnalysis>>, TError = ErrorType<void>>(
+ supplierPoId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPoAnalysis>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPoAnalysisQueryOptions(supplierPoId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getGetDashboardSummaryUrl = () => {
 

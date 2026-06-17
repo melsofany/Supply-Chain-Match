@@ -19,6 +19,10 @@ export interface SupplierPo {
   status: SupplierPoStatus;
   /** @nullable */
   totalAmount?: number | null;
+  /** Rate for tax + insurance (default 0.03 = 3%) */
+  taxInsuranceRate: number;
+  /** Additional operating costs */
+  operatingCost: number;
   /** @nullable */
   notes?: string | null;
   createdAt: Date;

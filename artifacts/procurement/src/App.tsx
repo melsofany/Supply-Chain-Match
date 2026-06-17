@@ -15,6 +15,7 @@ import CustomerPos from "@/pages/customer-pos";
 import CustomerPoDetail from "@/pages/customer-po-detail";
 import SupplierPos from "@/pages/supplier-pos";
 import SupplierPoDetail from "@/pages/supplier-po-detail";
+import Accounting from "@/pages/accounting";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ function Router() {
         <Route path="/customer-pos/:id" component={CustomerPoDetail} />
         <Route path="/supplier-pos" component={SupplierPos} />
         <Route path="/supplier-pos/:id" component={SupplierPoDetail} />
+        <Route path="/accounting" component={Accounting} />
         <Route component={NotFound} />
       </Switch>
     </Shell>

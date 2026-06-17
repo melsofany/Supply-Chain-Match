@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Plus, Pencil, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, CheckCircle, XCircle, AlertTriangle, TrendingDown, History } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetQuotation,
@@ -12,10 +12,12 @@ import {
   useRejectQuotation,
   useListSuppliers,
   useCreateCustomerPo,
+  useGetPriceHistorySuggestions,
   getGetQuotationQueryKey,
   getListQuotationsQueryKey,
   getListCustomerPosQueryKey,
   getListSuppliersQueryKey,
+  getGetPriceHistorySuggestionsQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,6 +43,65 @@ const STATUS_COLORS: Record<string, string> = {
   approved: "bg-green-100 text-green-800",
   rejected: "bg-red-100 text-red-800",
 };
+
+function PriceHistoryWarning({ description }: { description: string }) {
+  const { data: suggestions } = useGetPriceHistorySuggestions(
+    { q: description },
+    { query: { enabled: description.trim().length >= 3, queryKey: getGetPriceHistorySuggestionsQueryKey({ q: description }) } }
+  );
+
+  if (!suggestions || !suggestions.hasWarning) return null;
+
+  return (
+    <div className="rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm flex gap-2">
+      <AlertTriangle className="h-4 w-4 text-yellow-600 flex-shrink-0 mt-0.5" />
+      <div>
+        <p className="font-medium text-yellow-800">تحذير تسعير</p>
+        <p className="text-yellow-700 mt-0.5">{suggestions.warningMessage}</p>
+        {suggestions.lowestSuccessfulPrice != null && (
+          <p className="text-green-700 mt-1 flex items-center gap-1">
+            <TrendingDown className="h-3.5 w-3.5" />
+            أقل سعر نجح سابقاً: ${suggestions.lowestSuccessfulPrice.toLocaleString()}
+          </p>
+        )}
+        {suggestions.suggestedMaxPrice != null && (
+          <p className="text-xs text-yellow-600 mt-1">
+            السقف المقترح: أقل من ${suggestions.suggestedMaxPrice.toLocaleString()}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PriceHistoryList({ description }: { description: string }) {
+  const { data: suggestions } = useGetPriceHistorySuggestions(
+    { q: description },
+    { query: { enabled: description.trim().length >= 3, queryKey: getGetPriceHistorySuggestionsQueryKey({ q: description }) } }
+  );
+
+  if (!suggestions || suggestions.entries.length === 0) return null;
+
+  return (
+    <div className="rounded-md border bg-muted/30 p-3">
+      <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+        <History className="h-3.5 w-3.5" />
+        تاريخ التسعير لهذا البند ({suggestions.entries.length} سجل)
+      </p>
+      <div className="space-y-1.5">
+        {suggestions.entries.slice(0, 5).map((e) => (
+          <div key={e.id} className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">{new Date(e.createdAt).toLocaleDateString("ar-EG")}</span>
+            <span className="font-medium">${Number(e.unitPrice).toLocaleString()}</span>
+            <span className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${e.resultedInPo ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+              {e.resultedInPo ? "✓ صدر PO" : "✗ لم يصدر"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default function QuotationDetail() {
   const { id } = useParams<{ id: string }>();
@@ -70,10 +131,17 @@ export default function QuotationDetail() {
   const [itemForm, setItemForm] = useState({
     description: "", quantity: "", unit: "", unitPrice: "", supplierId: "", notes: "",
   });
+  const [descriptionForHistory, setDescriptionForHistory] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDescriptionForHistory(itemForm.description), 400);
+    return () => clearTimeout(timer);
+  }, [itemForm.description]);
 
   function openAddItem() {
     setEditingItemId(null);
     setItemForm({ description: "", quantity: "", unit: "", unitPrice: "", supplierId: "", notes: "" });
+    setDescriptionForHistory("");
     setItemDialogOpen(true);
   }
 
@@ -87,6 +155,7 @@ export default function QuotationDetail() {
       supplierId: item.supplierId != null ? String(item.supplierId) : "",
       notes: item.notes ?? "",
     });
+    setDescriptionForHistory(item.description);
     setItemDialogOpen(true);
   }
 
@@ -100,7 +169,7 @@ export default function QuotationDetail() {
       quantity: Number(itemForm.quantity),
       unitPrice: Number(itemForm.unitPrice),
       ...(itemForm.unit && { unit: itemForm.unit }),
-      ...(itemForm.supplierId && { supplierId: Number(itemForm.supplierId) }),
+      ...(itemForm.supplierId && itemForm.supplierId !== "" && { supplierId: Number(itemForm.supplierId) }),
       ...(itemForm.notes && { notes: itemForm.notes }),
     };
 
@@ -122,7 +191,7 @@ export default function QuotationDetail() {
           onSuccess: () => {
             qc.invalidateQueries({ queryKey: getGetQuotationQueryKey(numId) });
             setItemDialogOpen(false);
-            toast({ title: "Item added" });
+            toast({ title: "Item added — price logged to history" });
           },
         }
       );
@@ -150,7 +219,7 @@ export default function QuotationDetail() {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetQuotationQueryKey(numId) });
           qc.invalidateQueries({ queryKey: getListQuotationsQueryKey() });
-          toast({ title: "Quotation approved" });
+          toast({ title: "Quotation approved — prices marked as successful in history" });
         },
       }
     );
@@ -163,7 +232,7 @@ export default function QuotationDetail() {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetQuotationQueryKey(numId) });
           qc.invalidateQueries({ queryKey: getListQuotationsQueryKey() });
-          toast({ title: "Quotation rejected" });
+          toast({ title: "Quotation rejected — prices marked as failed in history" });
         },
       }
     );
@@ -291,47 +360,83 @@ export default function QuotationDetail() {
         </CardContent>
       </Card>
 
+      {/* Add/Edit Item Dialog */}
       <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingItemId ? "Edit Item" : "Add Item"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Description *</Label>
-              <Input value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} />
+              <Input
+                value={itemForm.description}
+                onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
+                placeholder="e.g. مضخة مياه 10HP..."
+                data-testid="input-item-description"
+              />
             </div>
+
+            {/* Price history suggestions */}
+            {descriptionForHistory.length >= 3 && (
+              <div className="space-y-2">
+                <PriceHistoryWarning description={descriptionForHistory} />
+                <PriceHistoryList description={descriptionForHistory} />
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label>Quantity *</Label>
-                <Input type="number" value={itemForm.quantity} onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })} />
+                <Input
+                  type="number"
+                  value={itemForm.quantity}
+                  onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Unit Price *</Label>
-                <Input type="number" value={itemForm.unitPrice} onChange={(e) => setItemForm({ ...itemForm, unitPrice: e.target.value })} />
+                <Input
+                  type="number"
+                  value={itemForm.unitPrice}
+                  onChange={(e) => setItemForm({ ...itemForm, unitPrice: e.target.value })}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>Unit</Label>
-                <Input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} placeholder="pcs, kg..." />
+                <Input
+                  value={itemForm.unit}
+                  onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })}
+                  placeholder="pcs, kg..."
+                />
               </div>
             </div>
+
             <div className="space-y-1.5">
               <Label>Supplier</Label>
-              <Select value={itemForm.supplierId} onValueChange={(v) => setItemForm({ ...itemForm, supplierId: v })}>
+              <Select
+                value={itemForm.supplierId}
+                onValueChange={(v) => setItemForm({ ...itemForm, supplierId: v === "none" ? "" : v })}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select supplier..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No supplier</SelectItem>
+                  <SelectItem value="none">No supplier</SelectItem>
                   {(suppliers ?? []).map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-1.5">
               <Label>Notes</Label>
-              <Textarea rows={2} value={itemForm.notes} onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })} />
+              <Textarea
+                rows={2}
+                value={itemForm.notes}
+                onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })}
+              />
             </div>
           </div>
           <DialogFooter>
