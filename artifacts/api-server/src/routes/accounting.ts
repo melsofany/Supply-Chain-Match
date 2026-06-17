@@ -6,15 +6,19 @@ const router: IRouter = Router();
 
 function computeCosts(po: {
   totalAmount: string | null;
-  taxInsuranceRate: string;
+  insuranceRate: string;
+  vatRate: string;
   operatingCost: string;
 }) {
   const grossCost = po.totalAmount != null ? Number(po.totalAmount) : 0;
-  const taxInsuranceRate = Number(po.taxInsuranceRate);
+  const insuranceRate = Number(po.insuranceRate);
+  const vatRate = Number(po.vatRate);
   const operatingCost = Number(po.operatingCost);
-  const taxInsuranceAmount = Math.round(grossCost * taxInsuranceRate * 100) / 100;
-  const totalCost = Math.round((grossCost + taxInsuranceAmount + operatingCost) * 100) / 100;
-  return { grossCost, taxInsuranceRate, taxInsuranceAmount, operatingCost, totalCost };
+  // تأمين 3% مستقل عن ضريبة القيمة المضافة 14% — القانون المصري 2026
+  const insuranceAmount = Math.round(grossCost * insuranceRate * 100) / 100;
+  const vatAmount = Math.round(grossCost * vatRate * 100) / 100;
+  const totalCost = Math.round((grossCost + insuranceAmount + vatAmount + operatingCost) * 100) / 100;
+  return { grossCost, insuranceRate, insuranceAmount, vatRate, vatAmount, operatingCost, totalCost };
 }
 
 async function buildPoAnalysis(where?: any) {
@@ -27,7 +31,8 @@ async function buildPoAnalysis(where?: any) {
       customerPoId: supplierPosTable.customerPoId,
       status: supplierPosTable.status,
       totalAmount: supplierPosTable.totalAmount,
-      taxInsuranceRate: supplierPosTable.taxInsuranceRate,
+      insuranceRate: supplierPosTable.insuranceRate,
+      vatRate: supplierPosTable.vatRate,
       operatingCost: supplierPosTable.operatingCost,
       createdAt: supplierPosTable.createdAt,
     })
@@ -83,7 +88,8 @@ router.get("/accounting/summary", async (req, res): Promise<void> => {
   const totalRevenue = analyses.reduce((sum, a) => sum + (a.revenue ?? 0), 0);
   const totalCost = analyses.reduce((sum, a) => sum + a.totalCost, 0);
   const totalProfit = analyses.reduce((sum, a) => sum + (a.profit ?? 0), 0);
-  const totalTaxInsurance = analyses.reduce((sum, a) => sum + a.taxInsuranceAmount, 0);
+  const totalInsurance = analyses.reduce((sum, a) => sum + a.insuranceAmount, 0);
+  const totalVat = analyses.reduce((sum, a) => sum + a.vatAmount, 0);
   const totalOperatingCost = analyses.reduce((sum, a) => sum + a.operatingCost, 0);
 
   const profitableWithRevenue = analyses.filter((a) => a.revenue != null && a.revenue > 0);
@@ -97,7 +103,8 @@ router.get("/accounting/summary", async (req, res): Promise<void> => {
     totalProfit: Math.round(totalProfit * 100) / 100,
     avgProfitMargin,
     fulfilledCount: fulfilledAnalyses.length,
-    totalTaxInsurance: Math.round(totalTaxInsurance * 100) / 100,
+    totalInsurance: Math.round(totalInsurance * 100) / 100,
+    totalVat: Math.round(totalVat * 100) / 100,
     totalOperatingCost: Math.round(totalOperatingCost * 100) / 100,
   });
 });

@@ -661,8 +661,9 @@ export const ListSupplierPosResponseItem = zod.object({
   "poNumber": zod.string().nullish(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']),
   "totalAmount": zod.number().nullish(),
-  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (default 0.03 = 3%)'),
-  "operatingCost": zod.number().describe('Additional operating costs'),
+  "insuranceRate": zod.number().describe('نسبة التأمين (افتراضي 0.03 = 3%)'),
+  "vatRate": zod.number().describe('نسبة ضريبة القيمة المضافة (افتراضي 0.14 = 14%)'),
+  "operatingCost": zod.number().describe('تكاليف تشغيلية إضافية'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -678,7 +679,8 @@ export const CreateSupplierPoBody = zod.object({
   "poNumber": zod.string().optional(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']).optional(),
   "totalAmount": zod.number().optional(),
-  "taxInsuranceRate": zod.number().optional(),
+  "insuranceRate": zod.number().optional(),
+  "vatRate": zod.number().optional(),
   "operatingCost": zod.number().optional(),
   "notes": zod.string().optional()
 })
@@ -699,8 +701,9 @@ export const GetSupplierPoResponse = zod.object({
   "poNumber": zod.string().nullish(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']),
   "totalAmount": zod.number().nullish(),
-  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (default 0.03 = 3%)'),
-  "operatingCost": zod.number().describe('Additional operating costs'),
+  "insuranceRate": zod.number().describe('نسبة التأمين (افتراضي 0.03 = 3%)'),
+  "vatRate": zod.number().describe('نسبة ضريبة القيمة المضافة (افتراضي 0.14 = 14%)'),
+  "operatingCost": zod.number().describe('تكاليف تشغيلية إضافية'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -717,7 +720,8 @@ export const UpdateSupplierPoBody = zod.object({
   "poNumber": zod.string().optional(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']).optional(),
   "totalAmount": zod.number().optional(),
-  "taxInsuranceRate": zod.number().optional(),
+  "insuranceRate": zod.number().optional(),
+  "vatRate": zod.number().optional(),
   "operatingCost": zod.number().optional(),
   "notes": zod.string().optional()
 })
@@ -730,8 +734,9 @@ export const UpdateSupplierPoResponse = zod.object({
   "poNumber": zod.string().nullish(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']),
   "totalAmount": zod.number().nullish(),
-  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (default 0.03 = 3%)'),
-  "operatingCost": zod.number().describe('Additional operating costs'),
+  "insuranceRate": zod.number().describe('نسبة التأمين (افتراضي 0.03 = 3%)'),
+  "vatRate": zod.number().describe('نسبة ضريبة القيمة المضافة (افتراضي 0.14 = 14%)'),
+  "operatingCost": zod.number().describe('تكاليف تشغيلية إضافية'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -807,7 +812,8 @@ export const GetAccountingSummaryResponse = zod.object({
   "totalProfit": zod.number(),
   "avgProfitMargin": zod.number(),
   "fulfilledCount": zod.number(),
-  "totalTaxInsurance": zod.number(),
+  "totalInsurance": zod.number(),
+  "totalVat": zod.number(),
   "totalOperatingCost": zod.number()
 })
 
@@ -823,14 +829,16 @@ export const ListPoAnalysisResponseItem = zod.object({
   "customerPoId": zod.number().nullish(),
   "customerPoNumber": zod.string().nullish(),
   "status": zod.string(),
-  "grossCost": zod.number().describe('Supplier PO totalAmount (before tax\/insurance\/operating costs)'),
-  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (e.g. 0.03 = 3%)'),
-  "taxInsuranceAmount": zod.number().describe('grossCost \* taxInsuranceRate'),
-  "operatingCost": zod.number().describe('Manual operating costs added to this PO'),
-  "totalCost": zod.number().describe('grossCost + taxInsuranceAmount + operatingCost'),
-  "revenue": zod.number().nullish().describe('Linked customer PO amount (selling price to customer)'),
-  "profit": zod.number().nullish().describe('revenue - totalCost'),
-  "profitMargin": zod.number().nullish().describe('profit \/ revenue \* 100'),
+  "grossCost": zod.number().describe('قيمة أمر التوريد قبل الضرائب والتأمين'),
+  "insuranceRate": zod.number().describe('نسبة التأمين (3%)'),
+  "insuranceAmount": zod.number().describe('قيمة التأمين = grossCost * insuranceRate'),
+  "vatRate": zod.number().describe('نسبة ضريبة القيمة المضافة (14%)'),
+  "vatAmount": zod.number().describe('قيمة الضريبة = grossCost * vatRate'),
+  "operatingCost": zod.number().describe('تكاليف تشغيلية'),
+  "totalCost": zod.number().describe('الإجمالي = grossCost + insuranceAmount + vatAmount + operatingCost'),
+  "revenue": zod.number().nullish().describe('قيمة أمر الشراء من العميل'),
+  "profit": zod.number().nullish().describe('الربح = revenue - totalCost'),
+  "profitMargin": zod.number().nullish().describe('هامش الربح = profit / revenue * 100'),
   "createdAt": zod.coerce.date()
 })
 export const ListPoAnalysisResponse = zod.array(ListPoAnalysisResponseItem)
@@ -851,14 +859,16 @@ export const GetPoAnalysisResponse = zod.object({
   "customerPoId": zod.number().nullish(),
   "customerPoNumber": zod.string().nullish(),
   "status": zod.string(),
-  "grossCost": zod.number().describe('Supplier PO totalAmount (before tax\/insurance\/operating costs)'),
-  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (e.g. 0.03 = 3%)'),
-  "taxInsuranceAmount": zod.number().describe('grossCost \* taxInsuranceRate'),
-  "operatingCost": zod.number().describe('Manual operating costs added to this PO'),
-  "totalCost": zod.number().describe('grossCost + taxInsuranceAmount + operatingCost'),
-  "revenue": zod.number().nullish().describe('Linked customer PO amount (selling price to customer)'),
-  "profit": zod.number().nullish().describe('revenue - totalCost'),
-  "profitMargin": zod.number().nullish().describe('profit \/ revenue \* 100'),
+  "grossCost": zod.number().describe('قيمة أمر التوريد قبل الضرائب والتأمين'),
+  "insuranceRate": zod.number().describe('نسبة التأمين (3%)'),
+  "insuranceAmount": zod.number().describe('قيمة التأمين = grossCost * insuranceRate'),
+  "vatRate": zod.number().describe('نسبة ضريبة القيمة المضافة (14%)'),
+  "vatAmount": zod.number().describe('قيمة الضريبة = grossCost * vatRate'),
+  "operatingCost": zod.number().describe('تكاليف تشغيلية'),
+  "totalCost": zod.number().describe('الإجمالي = grossCost + insuranceAmount + vatAmount + operatingCost'),
+  "revenue": zod.number().nullish().describe('قيمة أمر الشراء من العميل'),
+  "profit": zod.number().nullish().describe('الربح = revenue - totalCost'),
+  "profitMargin": zod.number().nullish().describe('هامش الربح = profit / revenue * 100'),
   "createdAt": zod.coerce.date()
 })
 

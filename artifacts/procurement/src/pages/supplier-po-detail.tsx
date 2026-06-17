@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Shield, Settings2, TrendingUp, TrendingDown, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Shield, Settings2, TrendingUp, TrendingDown, AlertTriangle, Receipt } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetSupplierPo,
@@ -29,8 +29,16 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  draft: "مسودة",
+  sent: "مُرسل",
+  confirmed: "مُؤكد",
+  delivered: "مُسلَّم",
+  cancelled: "ملغي",
+};
+
 const fmt = (n: number) =>
-  `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  n.toLocaleString("ar-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function SupplierPoDetail() {
   const { id } = useParams<{ id: string }>();
@@ -49,7 +57,7 @@ export default function SupplierPoDetail() {
   const updatePo = useUpdateSupplierPo();
 
   const [editingCosts, setEditingCosts] = useState(false);
-  const [costForm, setCostForm] = useState({ taxInsuranceRate: "", operatingCost: "" });
+  const [costForm, setCostForm] = useState({ insuranceRate: "", vatRate: "", operatingCost: "" });
 
   function handleStatusChange(status: string) {
     updatePo.mutate(
@@ -58,7 +66,7 @@ export default function SupplierPoDetail() {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetSupplierPoQueryKey(numId) });
           qc.invalidateQueries({ queryKey: getListSupplierPosQueryKey() });
-          toast({ title: "Status updated" });
+          toast({ title: "تم تحديث الحالة" });
         },
       }
     );
@@ -67,27 +75,29 @@ export default function SupplierPoDetail() {
   function openEditCosts() {
     if (!po) return;
     setCostForm({
-      taxInsuranceRate: String(Number(po.taxInsuranceRate) * 100),
-      operatingCost: String(po.operatingCost ?? 0),
+      insuranceRate: String(Number((po as any).insuranceRate ?? 0.03) * 100),
+      vatRate: String(Number((po as any).vatRate ?? 0.14) * 100),
+      operatingCost: String((po as any).operatingCost ?? 0),
     });
     setEditingCosts(true);
   }
 
   function saveCosts() {
-    const rate = Number(costForm.taxInsuranceRate) / 100;
+    const ins = Number(costForm.insuranceRate) / 100;
+    const vat = Number(costForm.vatRate) / 100;
     const opCost = Number(costForm.operatingCost);
-    if (isNaN(rate) || isNaN(opCost)) {
-      toast({ title: "Invalid values", variant: "destructive" });
+    if (isNaN(ins) || isNaN(vat) || isNaN(opCost)) {
+      toast({ title: "قيم غير صحيحة", variant: "destructive" });
       return;
     }
     updatePo.mutate(
-      { id: numId, data: { taxInsuranceRate: rate, operatingCost: opCost } },
+      { id: numId, data: { insuranceRate: ins, vatRate: vat, operatingCost: opCost } },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetSupplierPoQueryKey(numId) });
           qc.invalidateQueries({ queryKey: getGetPoAnalysisQueryKey(numId) });
           setEditingCosts(false);
-          toast({ title: "Costs updated" });
+          toast({ title: "تم تحديث التكاليف" });
         },
       }
     );
@@ -100,17 +110,19 @@ export default function SupplierPoDetail() {
   if (!po) {
     return (
       <div className="text-center py-16">
-        <p className="text-muted-foreground">Supplier PO not found.</p>
-        <Button variant="link" onClick={() => setLocation("/supplier-pos")}>Back to Supplier POs</Button>
+        <p className="text-muted-foreground">لم يتم العثور على أمر التوريد.</p>
+        <Button variant="link" onClick={() => setLocation("/supplier-pos")}>عودة لأوامر التوريد</Button>
       </div>
     );
   }
 
   const grossCost = po.totalAmount ?? 0;
-  const taxInsuranceRate = Number(po.taxInsuranceRate);
-  const operatingCost = Number(po.operatingCost);
-  const taxInsuranceAmount = Math.round(grossCost * taxInsuranceRate * 100) / 100;
-  const totalCost = Math.round((grossCost + taxInsuranceAmount + operatingCost) * 100) / 100;
+  const insuranceRate = Number((po as any).insuranceRate ?? 0.03);
+  const vatRate = Number((po as any).vatRate ?? 0.14);
+  const operatingCost = Number((po as any).operatingCost ?? 0);
+  const insuranceAmount = Math.round(grossCost * insuranceRate * 100) / 100;
+  const vatAmount = Math.round(grossCost * vatRate * 100) / 100;
+  const totalCost = Math.round((grossCost + insuranceAmount + vatAmount + operatingCost) * 100) / 100;
 
   return (
     <div className="space-y-6">
@@ -120,21 +132,21 @@ export default function SupplierPoDetail() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">{po.poNumber ?? `Supplier PO #${po.id}`}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{po.poNumber ?? `أمر توريد #${po.id}`}</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            {po.supplierName ?? `Supplier #${po.supplierId}`} • {new Date(po.createdAt).toLocaleDateString()}
+            {(po as any).supplierName ?? `مورد #${po.supplierId}`} • {new Date(po.createdAt).toLocaleDateString("ar-EG")}
             {po.customerPoId && (
               <span className="ml-2">
-                • Linked to{" "}
+                • مرتبط بـ{" "}
                 <a href={`/customer-pos/${po.customerPoId}`} className="text-primary hover:underline">
-                  Customer PO #{po.customerPoId}
+                  أمر عميل #{po.customerPoId}
                 </a>
               </span>
             )}
           </p>
         </div>
-        <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${STATUS_COLORS[po.status] ?? ""}`}>
-          {po.status}
+        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[po.status] ?? ""}`}>
+          {STATUS_LABELS[po.status] ?? po.status}
         </span>
       </div>
 
@@ -142,32 +154,32 @@ export default function SupplierPoDetail() {
         {/* Status & Basic Info */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base">Details</CardTitle>
+            <CardTitle className="text-base">تفاصيل الأمر</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label className="text-xs text-muted-foreground">Status</Label>
+              <Label className="text-xs text-muted-foreground">الحالة</Label>
               <Select value={po.status} onValueChange={handleStatusChange}>
-                <SelectTrigger className="mt-1" data-testid="select-supplier-po-status">
+                <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="sent">Sent</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="delivered">Delivered</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="draft">مسودة</SelectItem>
+                  <SelectItem value="sent">مُرسل</SelectItem>
+                  <SelectItem value="confirmed">مُؤكد</SelectItem>
+                  <SelectItem value="delivered">مُسلَّم</SelectItem>
+                  <SelectItem value="cancelled">ملغي</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Supplier Amount</Label>
+              <Label className="text-xs text-muted-foreground">قيمة البضاعة من المورد</Label>
               <p className="mt-1 text-2xl font-bold">{grossCost > 0 ? fmt(grossCost) : "—"}</p>
-              <p className="text-xs text-muted-foreground">Before tax, insurance & operating costs</p>
+              <p className="text-xs text-muted-foreground">قبل التأمين والضريبة والتكاليف التشغيلية</p>
             </div>
             {po.notes && (
               <div>
-                <Label className="text-xs text-muted-foreground">Notes</Label>
+                <Label className="text-xs text-muted-foreground">ملاحظات</Label>
                 <p className="mt-1 text-sm">{po.notes}</p>
               </div>
             )}
@@ -178,17 +190,17 @@ export default function SupplierPoDetail() {
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-base">Cost Breakdown</CardTitle>
-              <CardDescription>Tax, insurance & operating costs</CardDescription>
+              <CardTitle className="text-base">تفصيل التكاليف</CardTitle>
+              <CardDescription>وفقاً للقانون المصري 2026</CardDescription>
             </div>
             {!editingCosts ? (
               <Button variant="outline" size="sm" onClick={openEditCosts}>
-                Edit
+                تعديل
               </Button>
             ) : (
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setEditingCosts(false)}>Cancel</Button>
-                <Button size="sm" onClick={saveCosts} disabled={updatePo.isPending}>Save</Button>
+                <Button variant="outline" size="sm" onClick={() => setEditingCosts(false)}>إلغاء</Button>
+                <Button size="sm" onClick={saveCosts} disabled={updatePo.isPending}>حفظ</Button>
               </div>
             )}
           </CardHeader>
@@ -196,22 +208,37 @@ export default function SupplierPoDetail() {
             {editingCosts ? (
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label>Tax & Insurance Rate (%)</Label>
+                  <Label>نسبة التأمين (%)</Label>
                   <div className="flex items-center gap-2">
                     <Input
                       type="number"
                       min="0"
                       max="100"
                       step="0.1"
-                      value={costForm.taxInsuranceRate}
-                      onChange={(e) => setCostForm({ ...costForm, taxInsuranceRate: e.target.value })}
+                      value={costForm.insuranceRate}
+                      onChange={(e) => setCostForm({ ...costForm, insuranceRate: e.target.value })}
                       className="w-28"
                     />
-                    <span className="text-sm text-muted-foreground">% (default: 3%)</span>
+                    <span className="text-sm text-muted-foreground">% (الافتراضي: 3%)</span>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Operating Cost ($)</Label>
+                  <Label>نسبة ضريبة القيمة المضافة (%)</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={costForm.vatRate}
+                      onChange={(e) => setCostForm({ ...costForm, vatRate: e.target.value })}
+                      className="w-28"
+                    />
+                    <span className="text-sm text-muted-foreground">% (الافتراضي: 14%)</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>التكاليف التشغيلية</Label>
                   <Input
                     type="number"
                     min="0"
@@ -224,32 +251,46 @@ export default function SupplierPoDetail() {
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Supplier Amount</span>
+                  <span className="text-muted-foreground">قيمة البضاعة</span>
                   <span className="font-medium">{fmt(grossCost)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-1.5 text-muted-foreground">
                     <Shield className="h-3.5 w-3.5" />
-                    Tax & Insurance ({(taxInsuranceRate * 100).toFixed(1)}%)
+                    تأمين ({(insuranceRate * 100).toFixed(0)}%)
                   </span>
-                  <span className="font-medium text-orange-600">+{fmt(taxInsuranceAmount)}</span>
+                  <span className="font-medium text-orange-600">+{fmt(insuranceAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <Receipt className="h-3.5 w-3.5" />
+                    ضريبة القيمة المضافة ({(vatRate * 100).toFixed(0)}%)
+                  </span>
+                  <span className="font-medium text-purple-600">+{fmt(vatAmount)}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-1.5 text-muted-foreground">
                     <Settings2 className="h-3.5 w-3.5" />
-                    Operating Costs
+                    تكاليف تشغيلية
                   </span>
                   <span className="font-medium text-blue-600">+{fmt(operatingCost)}</span>
                 </div>
                 <Separator />
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold">Total Cost</span>
+                  <span className="font-semibold">إجمالي التكلفة</span>
                   <span className="text-xl font-bold">{fmt(totalCost)}</span>
                 </div>
               </div>
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Egyptian Tax Note */}
+      <div className="rounded-lg border border-blue-200 bg-blue-50/60 px-4 py-3 text-sm text-blue-800">
+        <p className="font-semibold mb-1">📋 القانون المصري 2026</p>
+        <p>التأمين: 3% من قيمة كل أمر توريد — ضريبة القيمة المضافة: 14% (قانون رقم 67 لسنة 2016 وتعديلاته)</p>
+        <p className="text-blue-600 mt-0.5">يُحسب التأمين والضريبة كلٌّ منهما منفصلاً على قيمة البضاعة الأساسية.</p>
       </div>
 
       {/* P&L Analysis */}
@@ -269,42 +310,42 @@ export default function SupplierPoDetail() {
                 ? <TrendingUp className="h-4 w-4 text-green-600" />
                 : <TrendingDown className="h-4 w-4 text-red-600" />
               }
-              P&L Analysis
+              تحليل الأرباح والخسائر
             </CardTitle>
             <CardDescription>
-              Linked to{" "}
+              مرتبط بـ{" "}
               {analysis.customerPoId ? (
                 <a href={`/customer-pos/${analysis.customerPoId}`} className="text-primary hover:underline">
-                  {analysis.customerPoNumber ?? `Customer PO #${analysis.customerPoId}`}
+                  {(analysis as any).customerPoNumber ?? `أمر عميل #${analysis.customerPoId}`}
                 </a>
-              ) : "no customer PO yet"}
+              ) : "لا يوجد أمر عميل مرتبط"}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {analysis.revenue == null ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                <span>No linked customer PO — P&L unavailable. Link a customer PO to see profit.</span>
+                <span>لا يوجد أمر عميل مرتبط — الربح غير متاح. اربط أمر عميل لعرض الأرباح.</span>
               </div>
             ) : (
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Revenue</p>
+                  <p className="text-xs text-muted-foreground mb-1">الإيراد</p>
                   <p className="text-xl font-bold text-green-600">{fmt(analysis.revenue)}</p>
-                  <p className="text-xs text-muted-foreground">Customer paid</p>
+                  <p className="text-xs text-muted-foreground">ما دفعه العميل</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Total Cost</p>
+                  <p className="text-xs text-muted-foreground mb-1">إجمالي التكلفة</p>
                   <p className="text-xl font-bold text-red-600">{fmt(analysis.totalCost)}</p>
-                  <p className="text-xs text-muted-foreground">Supplier + tax + ops</p>
+                  <p className="text-xs text-muted-foreground">بضاعة + تأمين + ضريبة + تشغيل</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground mb-1">Net Profit</p>
+                  <p className="text-xs text-muted-foreground mb-1">صافي الربح</p>
                   <p className={`text-xl font-bold ${(analysis.profit ?? 0) >= 0 ? "text-green-600" : "text-red-600"}`}>
                     {fmt(analysis.profit ?? 0)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Margin: {analysis.profitMargin != null ? `${analysis.profitMargin.toFixed(1)}%` : "—"}
+                    الهامش: {analysis.profitMargin != null ? `${analysis.profitMargin.toFixed(1)}%` : "—"}
                   </p>
                 </div>
               </div>
