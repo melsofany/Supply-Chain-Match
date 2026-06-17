@@ -5,3 +5,5 @@ export * from "./quotations";
 export * from "./purchase-orders";
 export * from "./accounting";
 export * from "./supplier-rfqs";
+export * from "./delivery-notes";
+export * from "./invoices";

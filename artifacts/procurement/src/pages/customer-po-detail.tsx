@@ -1,5 +1,5 @@
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Truck, ExternalLink } from "lucide-react";
+import { ArrowLeft, Truck, ExternalLink, FileCheck, Plus, FileText } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetCustomerPo,
@@ -7,10 +7,14 @@ import {
   useCreateSupplierPo,
   useListSuppliers,
   useListSupplierPos,
+  useCreateDeliveryNote,
+  useGetCustomerPoTimeline,
   getGetCustomerPoQueryKey,
   getListCustomerPosQueryKey,
   getListSupplierPosQueryKey,
   getListSuppliersQueryKey,
+  getListDeliveryNotesQueryKey,
+  getGetCustomerPoTimelineQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,12 +38,51 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
+const STATUS_LABELS: Record<string, string> = {
+  received: "مستلم",
+  processing: "قيد المعالجة",
+  fulfilled: "مكتمل",
+  cancelled: "ملغي",
+};
+
 const SUPPLIER_PO_STATUS_COLORS: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
   confirmed: "bg-blue-100 text-blue-700",
   shipped: "bg-yellow-100 text-yellow-700",
   delivered: "bg-green-100 text-green-800",
   cancelled: "bg-red-100 text-red-700",
+};
+
+const DN_STATUS_COLORS: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-700",
+  pending_finance: "bg-yellow-100 text-yellow-800",
+  finance_approved: "bg-blue-100 text-blue-700",
+  delivered: "bg-purple-100 text-purple-700",
+  signed: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-700",
+};
+
+const DN_STATUS_LABELS: Record<string, string> = {
+  draft: "مسودة",
+  pending_finance: "بانتظار المالية",
+  finance_approved: "معتمد مالياً",
+  delivered: "تم التسليم",
+  signed: "موقع",
+  cancelled: "ملغي",
+};
+
+const INV_STATUS_COLORS: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-700",
+  issued: "bg-blue-100 text-blue-700",
+  paid: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-700",
+};
+
+const INV_STATUS_LABELS: Record<string, string> = {
+  draft: "مسودة",
+  issued: "صادرة",
+  paid: "مدفوعة",
+  cancelled: "ملغاة",
 };
 
 export default function CustomerPoDetail() {
@@ -58,14 +101,20 @@ export default function CustomerPoDetail() {
   const { data: allSupplierPos } = useListSupplierPos({
     query: { queryKey: getListSupplierPosQueryKey() },
   });
+  const { data: timeline } = useGetCustomerPoTimeline(numId, {
+    query: { enabled: !!numId, queryKey: getGetCustomerPoTimelineQueryKey(numId) },
+  });
 
   const linkedSupplierPos = (allSupplierPos ?? []).filter((spo) => spo.customerPoId === numId);
 
   const updatePo = useUpdateCustomerPo();
   const createSupplierPo = useCreateSupplierPo();
+  const createDn = useCreateDeliveryNote();
 
   const [supplierPoDialogOpen, setSupplierPoDialogOpen] = useState(false);
   const [supplierPoForm, setSupplierPoForm] = useState({ supplierId: "", poNumber: "", totalAmount: "", notes: "" });
+  const [dnDialogOpen, setDnDialogOpen] = useState(false);
+  const [dnForm, setDnForm] = useState({ issueDate: "", notes: "" });
 
   function handleStatusChange(status: string) {
     updatePo.mutate(
@@ -107,6 +156,27 @@ export default function CustomerPoDetail() {
     );
   }
 
+  function handleCreateDn() {
+    createDn.mutate(
+      {
+        data: {
+          customerPoId: numId,
+          ...(dnForm.issueDate && { issueDate: dnForm.issueDate }),
+          ...(dnForm.notes && { notes: dnForm.notes }),
+        },
+      },
+      {
+        onSuccess: (dn) => {
+          qc.invalidateQueries({ queryKey: getListDeliveryNotesQueryKey() });
+          qc.invalidateQueries({ queryKey: getGetCustomerPoTimelineQueryKey(numId) });
+          setDnDialogOpen(false);
+          toast({ title: `تم إنشاء إذن التسليم ${dn.dnNumber}` });
+          setLocation(`/delivery-notes/${dn.id}`);
+        },
+      }
+    );
+  }
+
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-40 w-full" /></div>;
   }
@@ -120,8 +190,12 @@ export default function CustomerPoDetail() {
     );
   }
 
+  const deliveryNotes = timeline?.deliveryNotes ?? [];
+  const invoices = timeline?.invoices ?? [];
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => setLocation("/customer-pos")}>
           <ArrowLeft className="h-4 w-4" />
@@ -130,19 +204,29 @@ export default function CustomerPoDetail() {
           <h1 className="text-2xl font-bold tracking-tight">{po.poNumber ?? `أمر شراء العميل #${po.id}`}</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             {po.customerName ?? `عميل #${po.customerId}`} • {new Date(po.createdAt).toLocaleDateString("ar-EG")}
+            {po.quotationId && (
+              <button className="ml-2 text-blue-600 hover:underline text-xs" onClick={() => setLocation(`/quotations/${po.quotationId}`)}>
+                عرض سعر #{po.quotationId}
+              </button>
+            )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${STATUS_COLORS[po.status] ?? ""}`}>
-            {po.status}
+            {STATUS_LABELS[po.status] ?? po.status}
           </span>
+          <Button size="sm" variant="outline" onClick={() => setDnDialogOpen(true)}>
+            <FileCheck className="h-4 w-4 mr-1.5" />
+            إذن تسليم
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setSupplierPoDialogOpen(true)} data-testid="button-create-supplier-po">
             <Truck className="h-4 w-4 mr-1.5" />
-            إنشاء أمر شراء مورد
+            أمر شراء مورد
           </Button>
         </div>
       </div>
 
+      {/* Details card */}
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">التفاصيل</CardTitle></CardHeader>
         <CardContent className="space-y-4">
@@ -177,56 +261,39 @@ export default function CustomerPoDetail() {
         </CardContent>
       </Card>
 
-      {/* Linked Supplier POs */}
+      {/* Delivery Notes */}
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Truck className="h-4 w-4 text-muted-foreground" />
-              أوامر الشراء للموردين
-            </CardTitle>
-            {linkedSupplierPos.length > 0 && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                تم إنشاؤها تلقائياً من عرض الأسعار
-              </p>
-            )}
-          </div>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileCheck className="h-4 w-4 text-muted-foreground" />
+            أذون التسليم
+          </CardTitle>
+          <Button size="sm" variant="outline" onClick={() => setDnDialogOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            جديد
+          </Button>
         </CardHeader>
         <CardContent>
-          {linkedSupplierPos.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">
-              لا توجد أوامر شراء للموردين بعد.
-              {po.quotationId
-                ? " لم تكن هناك بنود مرتبطة بموردين في عرض الأسعار."
-                : " استخدم زر «إنشاء أمر شراء مورد» لإضافة مورد يدوياً."}
-            </p>
+          {deliveryNotes.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">لا توجد أذون تسليم بعد.</p>
           ) : (
             <div className="divide-y">
-              {linkedSupplierPos.map((spo) => (
-                <div key={spo.id} className="flex items-center justify-between py-3">
+              {deliveryNotes.map((dn) => (
+                <div key={dn.id} className="flex items-center justify-between py-3">
                   <div>
-                    <p className="text-sm font-medium">
-                      {spo.supplierName ?? `مورد #${spo.supplierId}`}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {spo.poNumber ?? `SPO-${spo.id}`}
-                    </p>
+                    <p className="text-sm font-medium">{dn.dnNumber}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{dn.issueDate ?? new Date(dn.createdAt).toLocaleDateString("ar-EG")}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    {spo.totalAmount != null && (
-                      <span className="text-sm font-semibold">
-                        {Number(spo.totalAmount).toLocaleString()} ج.م
+                  <div className="flex items-center gap-2">
+                    {dn.invoice && (
+                      <span className="text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full font-medium">
+                        {dn.invoice.invoiceNumber}
                       </span>
                     )}
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SUPPLIER_PO_STATUS_COLORS[spo.status] ?? ""}`}>
-                      {spo.status}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${DN_STATUS_COLORS[dn.status] ?? ""}`}>
+                      {DN_STATUS_LABELS[dn.status] ?? dn.status}
                     </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => setLocation(`/supplier-pos/${spo.id}`)}
-                    >
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setLocation(`/delivery-notes/${dn.id}`)}>
                       <ExternalLink className="h-3.5 w-3.5" />
                     </Button>
                   </div>
@@ -237,6 +304,88 @@ export default function CustomerPoDetail() {
         </CardContent>
       </Card>
 
+      {/* Invoices */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4 text-muted-foreground" />
+            الفواتير
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {invoices.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              لا توجد فواتير بعد. أنشئ إذن تسليم وقم بتوقيعه لإصدار الفاتورة.
+            </p>
+          ) : (
+            <div className="divide-y">
+              {invoices.map((inv) => (
+                <div key={inv.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium">{inv.invoiceNumber}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">إذن: {inv.dnNumber ?? `#${inv.deliveryNoteId}`}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {inv.totalAmount != null && (
+                      <span className="text-sm font-semibold">{Number(inv.totalAmount).toLocaleString()} ج.م</span>
+                    )}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${INV_STATUS_COLORS[inv.status] ?? ""}`}>
+                      {INV_STATUS_LABELS[inv.status] ?? inv.status}
+                    </span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setLocation(`/invoices/${inv.id}`)}>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Supplier POs */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Truck className="h-4 w-4 text-muted-foreground" />
+              أوامر الشراء للموردين
+            </CardTitle>
+            {linkedSupplierPos.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">تم إنشاؤها تلقائياً من عرض الأسعار</p>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {linkedSupplierPos.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">لا توجد أوامر شراء للموردين.</p>
+          ) : (
+            <div className="divide-y">
+              {linkedSupplierPos.map((spo) => (
+                <div key={spo.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium">{spo.supplierName ?? `مورد #${spo.supplierId}`}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{spo.poNumber ?? `SPO-${spo.id}`}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {spo.totalAmount != null && (
+                      <span className="text-sm font-semibold">{Number(spo.totalAmount).toLocaleString()} ج.م</span>
+                    )}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SUPPLIER_PO_STATUS_COLORS[spo.status] ?? ""}`}>
+                      {spo.status}
+                    </span>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setLocation(`/supplier-pos/${spo.id}`)}>
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Supplier PO Dialog */}
       <Dialog open={supplierPoDialogOpen} onOpenChange={setSupplierPoDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>إنشاء أمر شراء مورد</DialogTitle></DialogHeader>
@@ -268,6 +417,28 @@ export default function CustomerPoDetail() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setSupplierPoDialogOpen(false)}>إلغاء</Button>
             <Button onClick={handleCreateSupplierPo} disabled={createSupplierPo.isPending}>إنشاء</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Delivery Note Dialog */}
+      <Dialog open={dnDialogOpen} onOpenChange={setDnDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>إنشاء إذن تسليم</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">سيتم إنشاء إذن تسليم جديد مرتبط بأمر الشراء هذا برقم فريد تلقائياً.</p>
+            <div className="space-y-1.5">
+              <Label>تاريخ الإصدار</Label>
+              <Input type="date" value={dnForm.issueDate} onChange={(e) => setDnForm({ ...dnForm, issueDate: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ملاحظات</Label>
+              <Textarea rows={2} value={dnForm.notes} onChange={(e) => setDnForm({ ...dnForm, notes: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDnDialogOpen(false)}>إلغاء</Button>
+            <Button onClick={handleCreateDn} disabled={createDn.isPending}>إنشاء</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

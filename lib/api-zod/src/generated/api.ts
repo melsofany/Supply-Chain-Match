@@ -661,11 +661,8 @@ export const ListSupplierPosResponseItem = zod.object({
   "poNumber": zod.string().nullish(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']),
   "totalAmount": zod.number().nullish(),
-  "insuranceRate": zod.number().describe('نسبة التأمين النهائي (3% للعقود الحكومية — قانون 182/2018)'),
-  "vatRate": zod.number().describe('نسبة ضريبة القيمة المضافة (14% — قانون 67/2016)'),
-  "withholdingTaxRate": zod.number().describe('نسبة الخصم تحت حساب الضريبة (0.5% — المادة 59 قانون 91/2005)'),
-  "stampDutyRate": zod.number().describe('نسبة ضريبة الدمغة (0.1% — قانون 111/1980)'),
-  "operatingCost": zod.number().describe('تكاليف تشغيلية إضافية'),
+  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (default 0.03 = 3%)'),
+  "operatingCost": zod.number().describe('Additional operating costs'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -681,10 +678,7 @@ export const CreateSupplierPoBody = zod.object({
   "poNumber": zod.string().optional(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']).optional(),
   "totalAmount": zod.number().optional(),
-  "insuranceRate": zod.number().optional(),
-  "vatRate": zod.number().optional(),
-  "withholdingTaxRate": zod.number().optional(),
-  "stampDutyRate": zod.number().optional(),
+  "taxInsuranceRate": zod.number().optional(),
   "operatingCost": zod.number().optional(),
   "notes": zod.string().optional()
 })
@@ -705,11 +699,8 @@ export const GetSupplierPoResponse = zod.object({
   "poNumber": zod.string().nullish(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']),
   "totalAmount": zod.number().nullish(),
-  "insuranceRate": zod.number().describe('نسبة التأمين النهائي (3% للعقود الحكومية — قانون 182/2018)'),
-  "vatRate": zod.number().describe('نسبة ضريبة القيمة المضافة (14% — قانون 67/2016)'),
-  "withholdingTaxRate": zod.number().describe('نسبة الخصم تحت حساب الضريبة (0.5% — المادة 59 قانون 91/2005)'),
-  "stampDutyRate": zod.number().describe('نسبة ضريبة الدمغة (0.1% — قانون 111/1980)'),
-  "operatingCost": zod.number().describe('تكاليف تشغيلية إضافية'),
+  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (default 0.03 = 3%)'),
+  "operatingCost": zod.number().describe('Additional operating costs'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -726,10 +717,7 @@ export const UpdateSupplierPoBody = zod.object({
   "poNumber": zod.string().optional(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']).optional(),
   "totalAmount": zod.number().optional(),
-  "insuranceRate": zod.number().optional(),
-  "vatRate": zod.number().optional(),
-  "withholdingTaxRate": zod.number().optional(),
-  "stampDutyRate": zod.number().optional(),
+  "taxInsuranceRate": zod.number().optional(),
   "operatingCost": zod.number().optional(),
   "notes": zod.string().optional()
 })
@@ -742,14 +730,318 @@ export const UpdateSupplierPoResponse = zod.object({
   "poNumber": zod.string().nullish(),
   "status": zod.enum(['draft', 'sent', 'confirmed', 'delivered', 'cancelled']),
   "totalAmount": zod.number().nullish(),
-  "insuranceRate": zod.number().describe('نسبة التأمين النهائي (3% للعقود الحكومية — قانون 182/2018)'),
-  "vatRate": zod.number().describe('نسبة ضريبة القيمة المضافة (14% — قانون 67/2016)'),
-  "withholdingTaxRate": zod.number().describe('نسبة الخصم تحت حساب الضريبة (0.5% — المادة 59 قانون 91/2005)'),
-  "stampDutyRate": zod.number().describe('نسبة ضريبة الدمغة (0.1% — قانون 111/1980)'),
-  "operatingCost": zod.number().describe('تكاليف تشغيلية إضافية'),
+  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (default 0.03 = 3%)'),
+  "operatingCost": zod.number().describe('Additional operating costs'),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
+
+
+/**
+ * @summary List all delivery notes
+ */
+export const ListDeliveryNotesResponseItem = zod.object({
+  "id": zod.number(),
+  "dnNumber": zod.string(),
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "status": zod.enum(['draft', 'pending_finance', 'finance_approved', 'delivered', 'signed', 'cancelled']),
+  "issueDate": zod.string().nullish(),
+  "signedFileUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "financeApprovedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "invoice": zod.object({
+  "id": zod.number(),
+  "invoiceNumber": zod.string(),
+  "status": zod.string()
+}).nullish()
+})
+export const ListDeliveryNotesResponse = zod.array(ListDeliveryNotesResponseItem)
+
+
+/**
+ * @summary Create a delivery note for a customer PO
+ */
+export const CreateDeliveryNoteBody = zod.object({
+  "customerPoId": zod.number(),
+  "issueDate": zod.string().optional(),
+  "notes": zod.string().optional()
+})
+
+
+/**
+ * @summary Get a delivery note by ID
+ */
+export const GetDeliveryNoteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetDeliveryNoteResponse = zod.object({
+  "id": zod.number(),
+  "dnNumber": zod.string(),
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "status": zod.enum(['draft', 'pending_finance', 'finance_approved', 'delivered', 'signed', 'cancelled']),
+  "issueDate": zod.string().nullish(),
+  "signedFileUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "financeApprovedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "invoice": zod.object({
+  "id": zod.number(),
+  "invoiceNumber": zod.string(),
+  "status": zod.string()
+}).nullish()
+})
+
+
+/**
+ * @summary Update a delivery note
+ */
+export const UpdateDeliveryNoteParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateDeliveryNoteBody = zod.object({
+  "status": zod.enum(['draft', 'pending_finance', 'finance_approved', 'delivered', 'signed', 'cancelled']).optional(),
+  "issueDate": zod.string().optional(),
+  "signedFileUrl": zod.string().optional(),
+  "notes": zod.string().optional()
+})
+
+export const UpdateDeliveryNoteResponse = zod.object({
+  "id": zod.number(),
+  "dnNumber": zod.string(),
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "status": zod.enum(['draft', 'pending_finance', 'finance_approved', 'delivered', 'signed', 'cancelled']),
+  "issueDate": zod.string().nullish(),
+  "signedFileUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "financeApprovedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "invoice": zod.object({
+  "id": zod.number(),
+  "invoiceNumber": zod.string(),
+  "status": zod.string()
+}).nullish()
+})
+
+
+/**
+ * @summary Finance department approves the delivery note
+ */
+export const ApproveDeliveryNoteFinanceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ApproveDeliveryNoteFinanceResponse = zod.object({
+  "id": zod.number(),
+  "dnNumber": zod.string(),
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "status": zod.enum(['draft', 'pending_finance', 'finance_approved', 'delivered', 'signed', 'cancelled']),
+  "issueDate": zod.string().nullish(),
+  "signedFileUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "financeApprovedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "invoice": zod.object({
+  "id": zod.number(),
+  "invoiceNumber": zod.string(),
+  "status": zod.string()
+}).nullish()
+})
+
+
+/**
+ * @summary Mark delivery note as signed by customer (with optional file URL)
+ */
+export const MarkDeliveryNoteSignedParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkDeliveryNoteSignedBody = zod.object({
+  "signedFileUrl": zod.string().optional()
+})
+
+export const MarkDeliveryNoteSignedResponse = zod.object({
+  "id": zod.number(),
+  "dnNumber": zod.string(),
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "status": zod.enum(['draft', 'pending_finance', 'finance_approved', 'delivered', 'signed', 'cancelled']),
+  "issueDate": zod.string().nullish(),
+  "signedFileUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "financeApprovedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "invoice": zod.object({
+  "id": zod.number(),
+  "invoiceNumber": zod.string(),
+  "status": zod.string()
+}).nullish()
+})
+
+
+/**
+ * @summary List all invoices
+ */
+export const ListInvoicesResponseItem = zod.object({
+  "id": zod.number(),
+  "invoiceNumber": zod.string(),
+  "deliveryNoteId": zod.number(),
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "dnNumber": zod.string().nullish(),
+  "status": zod.enum(['draft', 'issued', 'paid', 'cancelled']),
+  "issueDate": zod.string().nullish(),
+  "totalAmount": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListInvoicesResponse = zod.array(ListInvoicesResponseItem)
+
+
+/**
+ * @summary Create an invoice for a signed delivery note
+ */
+export const CreateInvoiceBody = zod.object({
+  "deliveryNoteId": zod.number(),
+  "issueDate": zod.string().optional(),
+  "totalAmount": zod.number().optional(),
+  "notes": zod.string().optional()
+})
+
+
+/**
+ * @summary Get an invoice by ID
+ */
+export const GetInvoiceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetInvoiceResponse = zod.object({
+  "id": zod.number(),
+  "invoiceNumber": zod.string(),
+  "deliveryNoteId": zod.number(),
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "dnNumber": zod.string().nullish(),
+  "status": zod.enum(['draft', 'issued', 'paid', 'cancelled']),
+  "issueDate": zod.string().nullish(),
+  "totalAmount": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update an invoice
+ */
+export const UpdateInvoiceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateInvoiceBody = zod.object({
+  "status": zod.enum(['draft', 'issued', 'paid', 'cancelled']).optional(),
+  "issueDate": zod.string().optional(),
+  "totalAmount": zod.number().optional(),
+  "notes": zod.string().optional()
+})
+
+export const UpdateInvoiceResponse = zod.object({
+  "id": zod.number(),
+  "invoiceNumber": zod.string(),
+  "deliveryNoteId": zod.number(),
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "dnNumber": zod.string().nullish(),
+  "status": zod.enum(['draft', 'issued', 'paid', 'cancelled']),
+  "issueDate": zod.string().nullish(),
+  "totalAmount": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Full traceability chain for a customer PO
+ */
+export const GetCustomerPoTimelineParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetCustomerPoTimelineResponse = zod.object({
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "quotationId": zod.number().nullish(),
+  "quotationNumber": zod.string().nullish(),
+  "deliveryNotes": zod.array(zod.object({
+  "id": zod.number(),
+  "dnNumber": zod.string(),
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "status": zod.enum(['draft', 'pending_finance', 'finance_approved', 'delivered', 'signed', 'cancelled']),
+  "issueDate": zod.string().nullish(),
+  "signedFileUrl": zod.string().nullish(),
+  "notes": zod.string().nullish(),
+  "financeApprovedAt": zod.coerce.date().nullish(),
+  "createdAt": zod.coerce.date(),
+  "invoice": zod.object({
+  "id": zod.number(),
+  "invoiceNumber": zod.string(),
+  "status": zod.string()
+}).nullish()
+})).optional(),
+  "invoices": zod.array(zod.object({
+  "id": zod.number(),
+  "invoiceNumber": zod.string(),
+  "deliveryNoteId": zod.number(),
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerName": zod.string().nullish(),
+  "dnNumber": zod.string().nullish(),
+  "status": zod.enum(['draft', 'issued', 'paid', 'cancelled']),
+  "issueDate": zod.string().nullish(),
+  "totalAmount": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})).optional()
+})
+
+
+/**
+ * @summary Full pipeline traceability report
+ */
+export const GetPipelineReportResponseItem = zod.object({
+  "customerPoId": zod.number(),
+  "customerPoNumber": zod.string().nullish(),
+  "customerPoStatus": zod.string(),
+  "customerName": zod.string().nullish(),
+  "quotationId": zod.number().nullish(),
+  "quotationNumber": zod.string().nullish(),
+  "totalAmount": zod.number().nullish(),
+  "dnId": zod.number().nullish(),
+  "dnNumber": zod.string().nullish(),
+  "dnStatus": zod.string().nullish(),
+  "invoiceId": zod.number().nullish(),
+  "invoiceNumber": zod.string().nullish(),
+  "invoiceStatus": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const GetPipelineReportResponse = zod.array(GetPipelineReportResponseItem)
 
 
 /**
@@ -822,10 +1114,7 @@ export const GetAccountingSummaryResponse = zod.object({
   "totalProfit": zod.number(),
   "avgProfitMargin": zod.number(),
   "fulfilledCount": zod.number(),
-  "totalInsurance": zod.number(),
-  "totalVat": zod.number(),
-  "totalWithholdingTax": zod.number(),
-  "totalStampDuty": zod.number(),
+  "totalTaxInsurance": zod.number(),
   "totalOperatingCost": zod.number()
 })
 
@@ -841,20 +1130,14 @@ export const ListPoAnalysisResponseItem = zod.object({
   "customerPoId": zod.number().nullish(),
   "customerPoNumber": zod.string().nullish(),
   "status": zod.string(),
-  "grossCost": zod.number().describe('قيمة أمر التوريد قبل الضرائب والتأمين'),
-  "insuranceRate": zod.number().describe('نسبة التأمين النهائي (3% للعقود الحكومية)'),
-  "insuranceAmount": zod.number().describe('قيمة التأمين = grossCost * insuranceRate'),
-  "vatRate": zod.number().describe('نسبة ضريبة القيمة المضافة (14%)'),
-  "vatAmount": zod.number().describe('قيمة الضريبة = grossCost * vatRate'),
-  "withholdingTaxRate": zod.number().describe('نسبة الخصم تحت حساب الضريبة (0.5%)'),
-  "withholdingTaxAmount": zod.number().describe('قيمة الخصم = grossCost * withholdingTaxRate'),
-  "stampDutyRate": zod.number().describe('نسبة ضريبة الدمغة (0.1%)'),
-  "stampDutyAmount": zod.number().describe('قيمة الدمغة = grossCost * stampDutyRate'),
-  "operatingCost": zod.number().describe('تكاليف تشغيلية'),
-  "totalCost": zod.number().describe('الإجمالي = grossCost + insurance + vat + withholding + stampDuty + operating'),
-  "revenue": zod.number().nullish().describe('قيمة أمر الشراء من العميل'),
-  "profit": zod.number().nullish().describe('الربح = revenue - totalCost'),
-  "profitMargin": zod.number().nullish().describe('هامش الربح = profit / revenue * 100'),
+  "grossCost": zod.number().describe('Supplier PO totalAmount (before tax\/insurance\/operating costs)'),
+  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (e.g. 0.03 = 3%)'),
+  "taxInsuranceAmount": zod.number().describe('grossCost \* taxInsuranceRate'),
+  "operatingCost": zod.number().describe('Manual operating costs added to this PO'),
+  "totalCost": zod.number().describe('grossCost + taxInsuranceAmount + operatingCost'),
+  "revenue": zod.number().nullish().describe('Linked customer PO amount (selling price to customer)'),
+  "profit": zod.number().nullish().describe('revenue - totalCost'),
+  "profitMargin": zod.number().nullish().describe('profit \/ revenue \* 100'),
   "createdAt": zod.coerce.date()
 })
 export const ListPoAnalysisResponse = zod.array(ListPoAnalysisResponseItem)
@@ -875,20 +1158,14 @@ export const GetPoAnalysisResponse = zod.object({
   "customerPoId": zod.number().nullish(),
   "customerPoNumber": zod.string().nullish(),
   "status": zod.string(),
-  "grossCost": zod.number().describe('قيمة أمر التوريد قبل الضرائب والتأمين'),
-  "insuranceRate": zod.number().describe('نسبة التأمين النهائي (3% للعقود الحكومية)'),
-  "insuranceAmount": zod.number().describe('قيمة التأمين = grossCost * insuranceRate'),
-  "vatRate": zod.number().describe('نسبة ضريبة القيمة المضافة (14%)'),
-  "vatAmount": zod.number().describe('قيمة الضريبة = grossCost * vatRate'),
-  "withholdingTaxRate": zod.number().describe('نسبة الخصم تحت حساب الضريبة (0.5%)'),
-  "withholdingTaxAmount": zod.number().describe('قيمة الخصم = grossCost * withholdingTaxRate'),
-  "stampDutyRate": zod.number().describe('نسبة ضريبة الدمغة (0.1%)'),
-  "stampDutyAmount": zod.number().describe('قيمة الدمغة = grossCost * stampDutyRate'),
-  "operatingCost": zod.number().describe('تكاليف تشغيلية'),
-  "totalCost": zod.number().describe('الإجمالي = grossCost + insurance + vat + withholding + stampDuty + operating'),
-  "revenue": zod.number().nullish().describe('قيمة أمر الشراء من العميل'),
-  "profit": zod.number().nullish().describe('الربح = revenue - totalCost'),
-  "profitMargin": zod.number().nullish().describe('هامش الربح = profit / revenue * 100'),
+  "grossCost": zod.number().describe('Supplier PO totalAmount (before tax\/insurance\/operating costs)'),
+  "taxInsuranceRate": zod.number().describe('Rate for tax + insurance (e.g. 0.03 = 3%)'),
+  "taxInsuranceAmount": zod.number().describe('grossCost \* taxInsuranceRate'),
+  "operatingCost": zod.number().describe('Manual operating costs added to this PO'),
+  "totalCost": zod.number().describe('grossCost + taxInsuranceAmount + operatingCost'),
+  "revenue": zod.number().nullish().describe('Linked customer PO amount (selling price to customer)'),
+  "profit": zod.number().nullish().describe('revenue - totalCost'),
+  "profitMargin": zod.number().nullish().describe('profit \/ revenue \* 100'),
   "createdAt": zod.coerce.date()
 })
 

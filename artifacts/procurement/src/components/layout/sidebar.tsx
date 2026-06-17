@@ -10,19 +10,25 @@ import {
   Truck,
   Menu,
   Calculator,
+  FileCheck,
+  ReceiptText,
+  BarChart3,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/customers", label: "Customers", icon: Users },
-  { href: "/suppliers", label: "Suppliers", icon: Building2 },
-  { href: "/inquiries", label: "Inquiries", icon: FileQuestion },
-  { href: "/quotations", label: "Quotations", icon: FileText },
-  { href: "/customer-pos", label: "Customer POs", icon: ShoppingCart },
-  { href: "/supplier-pos", label: "Supplier POs", icon: Truck },
-  { href: "/accounting", label: "Accounting", icon: Calculator },
+  { href: "/customers", label: "العملاء", icon: Users },
+  { href: "/suppliers", label: "الموردون", icon: Building2 },
+  { href: "/inquiries", label: "الاستفسارات", icon: FileQuestion },
+  { href: "/quotations", label: "عروض الأسعار", icon: FileText },
+  { href: "/customer-pos", label: "أوامر شراء العملاء", icon: ShoppingCart },
+  { href: "/supplier-pos", label: "أوامر شراء الموردين", icon: Truck },
+  { href: "/delivery-notes", label: "أذون التسليم", icon: FileCheck },
+  { href: "/invoices", label: "الفواتير", icon: ReceiptText },
+  { href: "/reports", label: "التقارير", icon: BarChart3 },
+  { href: "/accounting", label: "المحاسبة", icon: Calculator },
 ];
 
 export function Sidebar() {

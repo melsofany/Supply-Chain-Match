@@ -17,6 +17,11 @@ import SupplierPos from "@/pages/supplier-pos";
 import SupplierPoDetail from "@/pages/supplier-po-detail";
 import SupplierRfqDetail from "@/pages/supplier-rfq-detail";
 import Accounting from "@/pages/accounting";
+import DeliveryNotes from "@/pages/delivery-notes";
+import DeliveryNoteDetail from "@/pages/delivery-note-detail";
+import Invoices from "@/pages/invoices";
+import InvoiceDetail from "@/pages/invoice-detail";
+import Reports from "@/pages/reports";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +43,11 @@ function Router() {
         <Route path="/supplier-pos" component={SupplierPos} />
         <Route path="/supplier-pos/:id" component={SupplierPoDetail} />
         <Route path="/supplier-rfqs/:id" component={SupplierRfqDetail} />
+        <Route path="/delivery-notes" component={DeliveryNotes} />
+        <Route path="/delivery-notes/:id" component={DeliveryNoteDetail} />
+        <Route path="/invoices" component={Invoices} />
+        <Route path="/invoices/:id" component={InvoiceDetail} />
+        <Route path="/reports" component={Reports} />
         <Route path="/accounting" component={Accounting} />
         <Route component={NotFound} />
       </Switch>

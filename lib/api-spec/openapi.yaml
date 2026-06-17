@@ -22,6 +22,12 @@ tags:
     description: Customer purchase orders
   - name: supplier-pos
     description: Supplier purchase orders
+  - name: delivery-notes
+    description: Delivery notes management
+  - name: invoices
+    description: Customer invoices
+  - name: reports
+    description: Traceability and pipeline reports
   - name: dashboard
     description: Dashboard summaries
   - name: price-history
@@ -741,6 +747,241 @@ paths:
               schema:
                 $ref: "#/components/schemas/SupplierPo"
 
+  # ─── DELIVERY NOTES ───────────────────────────────────────────────────────────
+  /delivery-notes:
+    get:
+      operationId: listDeliveryNotes
+      tags: [delivery-notes]
+      summary: List all delivery notes
+      responses:
+        "200":
+          description: List of delivery notes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeliveryNote"
+    post:
+      operationId: createDeliveryNote
+      tags: [delivery-notes]
+      summary: Create a delivery note for a customer PO
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryNoteInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryNote"
+
+  /delivery-notes/{id}:
+    get:
+      operationId: getDeliveryNote
+      tags: [delivery-notes]
+      summary: Get a delivery note by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Delivery note
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryNote"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateDeliveryNote
+      tags: [delivery-notes]
+      summary: Update a delivery note
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryNoteUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryNote"
+
+  /delivery-notes/{id}/approve-finance:
+    post:
+      operationId: approveDeliveryNoteFinance
+      tags: [delivery-notes]
+      summary: Finance department approves the delivery note
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryNote"
+
+  /delivery-notes/{id}/mark-signed:
+    post:
+      operationId: markDeliveryNoteSigned
+      tags: [delivery-notes]
+      summary: Mark delivery note as signed by customer (with optional file URL)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarkSignedInput"
+      responses:
+        "200":
+          description: Signed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeliveryNote"
+
+  # ─── INVOICES ─────────────────────────────────────────────────────────────────
+  /invoices:
+    get:
+      operationId: listInvoices
+      tags: [invoices]
+      summary: List all invoices
+      responses:
+        "200":
+          description: List of invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invoice"
+    post:
+      operationId: createInvoice
+      tags: [invoices]
+      summary: Create an invoice for a signed delivery note
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      summary: Get an invoice by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateInvoice
+      tags: [invoices]
+      summary: Update an invoice
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvoiceUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invoice"
+
+  # ─── TRACEABILITY ──────────────────────────────────────────────────────────────
+  /customer-pos/{id}/timeline:
+    get:
+      operationId: getCustomerPoTimeline
+      tags: [customer-pos]
+      summary: Full traceability chain for a customer PO
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Timeline chain
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PoTimeline"
+        "404":
+          description: Not found
+
+  /reports/pipeline:
+    get:
+      operationId: getPipelineReport
+      tags: [reports]
+      summary: Full pipeline traceability report
+      responses:
+        "200":
+          description: Pipeline report rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PipelineReportRow"
+
   # ─── PRICE HISTORY ────────────────────────────────────────────────────────────
   /price-history:
     get:
@@ -1274,6 +1515,197 @@ components:
           type: number
         notes:
           type: string
+
+    # ─── DELIVERY NOTES ────────────────────────────────────────────────────────
+    DeliveryNote:
+      type: object
+      required: [id, dnNumber, customerPoId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        dnNumber:
+          type: string
+        customerPoId:
+          type: integer
+        customerPoNumber:
+          type: ["string", "null"]
+        customerName:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, pending_finance, finance_approved, delivered, signed, cancelled]
+        issueDate:
+          type: ["string", "null"]
+        signedFileUrl:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        financeApprovedAt:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        invoice:
+          nullable: true
+          $ref: "#/components/schemas/InvoiceSummary"
+
+    DeliveryNoteInput:
+      type: object
+      required: [customerPoId]
+      properties:
+        customerPoId:
+          type: integer
+        issueDate:
+          type: string
+        notes:
+          type: string
+
+    DeliveryNoteUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [draft, pending_finance, finance_approved, delivered, signed, cancelled]
+        issueDate:
+          type: string
+        signedFileUrl:
+          type: string
+        notes:
+          type: string
+
+    MarkSignedInput:
+      type: object
+      properties:
+        signedFileUrl:
+          type: string
+
+    # ─── INVOICE ───────────────────────────────────────────────────────────────
+    Invoice:
+      type: object
+      required: [id, invoiceNumber, deliveryNoteId, customerPoId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        invoiceNumber:
+          type: string
+        deliveryNoteId:
+          type: integer
+        customerPoId:
+          type: integer
+        customerPoNumber:
+          type: ["string", "null"]
+        customerName:
+          type: ["string", "null"]
+        dnNumber:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, issued, paid, cancelled]
+        issueDate:
+          type: ["string", "null"]
+        totalAmount:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    InvoiceSummary:
+      type: object
+      required: [id, invoiceNumber, status]
+      properties:
+        id:
+          type: integer
+        invoiceNumber:
+          type: string
+        status:
+          type: string
+
+    InvoiceInput:
+      type: object
+      required: [deliveryNoteId]
+      properties:
+        deliveryNoteId:
+          type: integer
+        issueDate:
+          type: string
+        totalAmount:
+          type: number
+        notes:
+          type: string
+
+    InvoiceUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [draft, issued, paid, cancelled]
+        issueDate:
+          type: string
+        totalAmount:
+          type: number
+        notes:
+          type: string
+
+    # ─── TRACEABILITY ──────────────────────────────────────────────────────────
+    PoTimeline:
+      type: object
+      required: [customerPoId]
+      properties:
+        customerPoId:
+          type: integer
+        customerPoNumber:
+          type: ["string", "null"]
+        customerName:
+          type: ["string", "null"]
+        quotationId:
+          type: ["integer", "null"]
+        quotationNumber:
+          type: ["string", "null"]
+        deliveryNotes:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliveryNote"
+        invoices:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invoice"
+
+    PipelineReportRow:
+      type: object
+      required: [customerPoId, customerPoStatus, createdAt]
+      properties:
+        customerPoId:
+          type: integer
+        customerPoNumber:
+          type: ["string", "null"]
+        customerPoStatus:
+          type: string
+        customerName:
+          type: ["string", "null"]
+        quotationId:
+          type: ["integer", "null"]
+        quotationNumber:
+          type: ["string", "null"]
+        totalAmount:
+          type: ["number", "null"]
+        dnId:
+          type: ["integer", "null"]
+        dnNumber:
+          type: ["string", "null"]
+        dnStatus:
+          type: ["string", "null"]
+        invoiceId:
+          type: ["integer", "null"]
+        invoiceNumber:
+          type: ["string", "null"]
+        invoiceStatus:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
 
     # ─── CUSTOMER PO ───────────────────────────────────────────────────────────
     CustomerPo:

@@ -324,6 +324,171 @@ export interface QuotationItemUpdate {
   notes?: string;
 }
 
+export type DeliveryNoteStatus = typeof DeliveryNoteStatus[keyof typeof DeliveryNoteStatus];
+
+
+export const DeliveryNoteStatus = {
+  draft: 'draft',
+  pending_finance: 'pending_finance',
+  finance_approved: 'finance_approved',
+  delivered: 'delivered',
+  signed: 'signed',
+  cancelled: 'cancelled',
+} as const;
+
+export interface InvoiceSummary {
+  id: number;
+  invoiceNumber: string;
+  status: string;
+}
+
+export interface DeliveryNote {
+  id: number;
+  dnNumber: string;
+  customerPoId: number;
+  /** @nullable */
+  customerPoNumber?: string | null;
+  /** @nullable */
+  customerName?: string | null;
+  status: DeliveryNoteStatus;
+  /** @nullable */
+  issueDate?: string | null;
+  /** @nullable */
+  signedFileUrl?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  financeApprovedAt?: string | null;
+  createdAt: string;
+  invoice?: InvoiceSummary | null;
+}
+
+export interface DeliveryNoteInput {
+  customerPoId: number;
+  issueDate?: string;
+  notes?: string;
+}
+
+export type DeliveryNoteUpdateStatus = typeof DeliveryNoteUpdateStatus[keyof typeof DeliveryNoteUpdateStatus];
+
+
+export const DeliveryNoteUpdateStatus = {
+  draft: 'draft',
+  pending_finance: 'pending_finance',
+  finance_approved: 'finance_approved',
+  delivered: 'delivered',
+  signed: 'signed',
+  cancelled: 'cancelled',
+} as const;
+
+export interface DeliveryNoteUpdate {
+  status?: DeliveryNoteUpdateStatus;
+  issueDate?: string;
+  signedFileUrl?: string;
+  notes?: string;
+}
+
+export interface MarkSignedInput {
+  signedFileUrl?: string;
+}
+
+export type InvoiceStatus = typeof InvoiceStatus[keyof typeof InvoiceStatus];
+
+
+export const InvoiceStatus = {
+  draft: 'draft',
+  issued: 'issued',
+  paid: 'paid',
+  cancelled: 'cancelled',
+} as const;
+
+export interface Invoice {
+  id: number;
+  invoiceNumber: string;
+  deliveryNoteId: number;
+  customerPoId: number;
+  /** @nullable */
+  customerPoNumber?: string | null;
+  /** @nullable */
+  customerName?: string | null;
+  /** @nullable */
+  dnNumber?: string | null;
+  status: InvoiceStatus;
+  /** @nullable */
+  issueDate?: string | null;
+  /** @nullable */
+  totalAmount?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceInput {
+  deliveryNoteId: number;
+  issueDate?: string;
+  totalAmount?: number;
+  notes?: string;
+}
+
+export type InvoiceUpdateStatus = typeof InvoiceUpdateStatus[keyof typeof InvoiceUpdateStatus];
+
+
+export const InvoiceUpdateStatus = {
+  draft: 'draft',
+  issued: 'issued',
+  paid: 'paid',
+  cancelled: 'cancelled',
+} as const;
+
+export interface InvoiceUpdate {
+  status?: InvoiceUpdateStatus;
+  issueDate?: string;
+  totalAmount?: number;
+  notes?: string;
+}
+
+export interface PoTimeline {
+  customerPoId: number;
+  /** @nullable */
+  customerPoNumber?: string | null;
+  /** @nullable */
+  customerName?: string | null;
+  /** @nullable */
+  quotationId?: number | null;
+  /** @nullable */
+  quotationNumber?: string | null;
+  deliveryNotes?: DeliveryNote[];
+  invoices?: Invoice[];
+}
+
+export interface PipelineReportRow {
+  customerPoId: number;
+  /** @nullable */
+  customerPoNumber?: string | null;
+  customerPoStatus: string;
+  /** @nullable */
+  customerName?: string | null;
+  /** @nullable */
+  quotationId?: number | null;
+  /** @nullable */
+  quotationNumber?: string | null;
+  /** @nullable */
+  totalAmount?: number | null;
+  /** @nullable */
+  dnId?: number | null;
+  /** @nullable */
+  dnNumber?: string | null;
+  /** @nullable */
+  dnStatus?: string | null;
+  /** @nullable */
+  invoiceId?: number | null;
+  /** @nullable */
+  invoiceNumber?: string | null;
+  /** @nullable */
+  invoiceStatus?: string | null;
+  createdAt: string;
+}
+
 export type CustomerPoStatus = typeof CustomerPoStatus[keyof typeof CustomerPoStatus];
 
 
