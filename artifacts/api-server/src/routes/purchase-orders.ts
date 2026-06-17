@@ -24,25 +24,40 @@ function enrichSupplierPo(po: {
   totalAmount: string | null;
   insuranceRate: string;
   vatRate: string;
+  withholdingTaxRate: string;
+  stampDutyRate: string;
   operatingCost: string;
   [key: string]: any;
 }) {
   const grossCost = po.totalAmount != null ? Number(po.totalAmount) : 0;
   const insuranceRate = Number(po.insuranceRate);
   const vatRate = Number(po.vatRate);
+  const withholdingTaxRate = Number(po.withholdingTaxRate);
+  const stampDutyRate = Number(po.stampDutyRate);
   const operatingCost = Number(po.operatingCost);
+
   const insuranceAmount = Math.round(grossCost * insuranceRate * 100) / 100;
   const vatAmount = Math.round(grossCost * vatRate * 100) / 100;
-  const totalCost = Math.round((grossCost + insuranceAmount + vatAmount + operatingCost) * 100) / 100;
+  // خصم تحت حساب الضريبة — يُخصَم من المورد ويُورَّد لمصلحة الضرائب
+  const withholdingTaxAmount = Math.round(grossCost * withholdingTaxRate * 100) / 100;
+  // ضريبة الدمغة — تكلفة إضافية على العقد
+  const stampDutyAmount = Math.round(grossCost * stampDutyRate * 100) / 100;
+  const totalCost = Math.round(
+    (grossCost + insuranceAmount + vatAmount + withholdingTaxAmount + stampDutyAmount + operatingCost) * 100
+  ) / 100;
 
   return {
     ...po,
     totalAmount: parseAmount(po.totalAmount),
     insuranceRate,
     vatRate,
+    withholdingTaxRate,
+    stampDutyRate,
     operatingCost,
     insuranceAmount,
     vatAmount,
+    withholdingTaxAmount,
+    stampDutyAmount,
     totalCost,
   };
 }
@@ -149,6 +164,8 @@ router.get("/supplier-pos", async (req, res): Promise<void> => {
       totalAmount: supplierPosTable.totalAmount,
       insuranceRate: supplierPosTable.insuranceRate,
       vatRate: supplierPosTable.vatRate,
+      withholdingTaxRate: supplierPosTable.withholdingTaxRate,
+      stampDutyRate: supplierPosTable.stampDutyRate,
       operatingCost: supplierPosTable.operatingCost,
       notes: supplierPosTable.notes,
       createdAt: supplierPosTable.createdAt,
@@ -170,6 +187,8 @@ router.post("/supplier-pos", async (req, res): Promise<void> => {
   if (ins.totalAmount != null) ins.totalAmount = String(ins.totalAmount);
   if (ins.insuranceRate != null) ins.insuranceRate = String(ins.insuranceRate);
   if (ins.vatRate != null) ins.vatRate = String(ins.vatRate);
+  if (ins.withholdingTaxRate != null) ins.withholdingTaxRate = String(ins.withholdingTaxRate);
+  if (ins.stampDutyRate != null) ins.stampDutyRate = String(ins.stampDutyRate);
   if (ins.operatingCost != null) ins.operatingCost = String(ins.operatingCost);
   const [po] = await db.insert(supplierPosTable).values(ins).returning();
   res.status(201).json(enrichSupplierPo({ ...po, supplierName: null }));
@@ -192,6 +211,8 @@ router.get("/supplier-pos/:id", async (req, res): Promise<void> => {
       totalAmount: supplierPosTable.totalAmount,
       insuranceRate: supplierPosTable.insuranceRate,
       vatRate: supplierPosTable.vatRate,
+      withholdingTaxRate: supplierPosTable.withholdingTaxRate,
+      stampDutyRate: supplierPosTable.stampDutyRate,
       operatingCost: supplierPosTable.operatingCost,
       notes: supplierPosTable.notes,
       createdAt: supplierPosTable.createdAt,
@@ -222,6 +243,8 @@ router.patch("/supplier-pos/:id", async (req, res): Promise<void> => {
   if (upd.totalAmount != null) upd.totalAmount = String(upd.totalAmount);
   if (upd.insuranceRate != null) upd.insuranceRate = String(upd.insuranceRate);
   if (upd.vatRate != null) upd.vatRate = String(upd.vatRate);
+  if (upd.withholdingTaxRate != null) upd.withholdingTaxRate = String(upd.withholdingTaxRate);
+  if (upd.stampDutyRate != null) upd.stampDutyRate = String(upd.stampDutyRate);
   if (upd.operatingCost != null) upd.operatingCost = String(upd.operatingCost);
   const [po] = await db
     .update(supplierPosTable)

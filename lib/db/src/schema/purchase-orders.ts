@@ -23,6 +23,8 @@ export const supplierPosTable = pgTable("supplier_pos", {
   totalAmount: numeric("total_amount", { precision: 15, scale: 2 }),
   insuranceRate: numeric("insurance_rate", { precision: 6, scale: 4 }).notNull().default("0.03"),
   vatRate: numeric("vat_rate", { precision: 6, scale: 4 }).notNull().default("0.14"),
+  withholdingTaxRate: numeric("withholding_tax_rate", { precision: 6, scale: 4 }).notNull().default("0.005"),
+  stampDutyRate: numeric("stamp_duty_rate", { precision: 6, scale: 4 }).notNull().default("0.001"),
   operatingCost: numeric("operating_cost", { precision: 15, scale: 2 }).notNull().default("0"),
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

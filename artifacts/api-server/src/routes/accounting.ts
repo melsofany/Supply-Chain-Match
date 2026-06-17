@@ -4,21 +4,49 @@ import { db, supplierPosTable, customerPosTable, suppliersTable } from "@workspa
 
 const router: IRouter = Router();
 
+/**
+ * حساب تكاليف أمر التوريد وفق القانون المصري 2026
+ *
+ * المعادلة:
+ *   إجمالي التكلفة = قيمة البضاعة
+ *                   + تأمين نهائي (3% للعقود الحكومية — قانون 182/2018)
+ *                   + ضريبة القيمة المضافة (14% — قانون 67/2016)
+ *                   + خصم تحت حساب الضريبة (0.5% — المادة 59 قانون 91/2005)
+ *                   + ضريبة الدمغة النسبية (0.1% — قانون 111/1980)
+ *                   + تكاليف تشغيلية
+ */
 function computeCosts(po: {
   totalAmount: string | null;
   insuranceRate: string;
   vatRate: string;
+  withholdingTaxRate: string;
+  stampDutyRate: string;
   operatingCost: string;
 }) {
   const grossCost = po.totalAmount != null ? Number(po.totalAmount) : 0;
   const insuranceRate = Number(po.insuranceRate);
   const vatRate = Number(po.vatRate);
+  const withholdingTaxRate = Number(po.withholdingTaxRate);
+  const stampDutyRate = Number(po.stampDutyRate);
   const operatingCost = Number(po.operatingCost);
-  // تأمين 3% مستقل عن ضريبة القيمة المضافة 14% — القانون المصري 2026
+
   const insuranceAmount = Math.round(grossCost * insuranceRate * 100) / 100;
   const vatAmount = Math.round(grossCost * vatRate * 100) / 100;
-  const totalCost = Math.round((grossCost + insuranceAmount + vatAmount + operatingCost) * 100) / 100;
-  return { grossCost, insuranceRate, insuranceAmount, vatRate, vatAmount, operatingCost, totalCost };
+  const withholdingTaxAmount = Math.round(grossCost * withholdingTaxRate * 100) / 100;
+  const stampDutyAmount = Math.round(grossCost * stampDutyRate * 100) / 100;
+  const totalCost = Math.round(
+    (grossCost + insuranceAmount + vatAmount + withholdingTaxAmount + stampDutyAmount + operatingCost) * 100
+  ) / 100;
+
+  return {
+    grossCost,
+    insuranceRate, insuranceAmount,
+    vatRate, vatAmount,
+    withholdingTaxRate, withholdingTaxAmount,
+    stampDutyRate, stampDutyAmount,
+    operatingCost,
+    totalCost,
+  };
 }
 
 async function buildPoAnalysis(where?: any) {
@@ -33,6 +61,8 @@ async function buildPoAnalysis(where?: any) {
       totalAmount: supplierPosTable.totalAmount,
       insuranceRate: supplierPosTable.insuranceRate,
       vatRate: supplierPosTable.vatRate,
+      withholdingTaxRate: supplierPosTable.withholdingTaxRate,
+      stampDutyRate: supplierPosTable.stampDutyRate,
       operatingCost: supplierPosTable.operatingCost,
       createdAt: supplierPosTable.createdAt,
     })
@@ -84,12 +114,13 @@ router.get("/accounting/summary", async (req, res): Promise<void> => {
   const analyses = await buildPoAnalysis();
 
   const fulfilledAnalyses = analyses.filter((a) => a.status === "delivered" || a.status === "confirmed");
-
   const totalRevenue = analyses.reduce((sum, a) => sum + (a.revenue ?? 0), 0);
   const totalCost = analyses.reduce((sum, a) => sum + a.totalCost, 0);
   const totalProfit = analyses.reduce((sum, a) => sum + (a.profit ?? 0), 0);
   const totalInsurance = analyses.reduce((sum, a) => sum + a.insuranceAmount, 0);
   const totalVat = analyses.reduce((sum, a) => sum + a.vatAmount, 0);
+  const totalWithholdingTax = analyses.reduce((sum, a) => sum + a.withholdingTaxAmount, 0);
+  const totalStampDuty = analyses.reduce((sum, a) => sum + a.stampDutyAmount, 0);
   const totalOperatingCost = analyses.reduce((sum, a) => sum + a.operatingCost, 0);
 
   const profitableWithRevenue = analyses.filter((a) => a.revenue != null && a.revenue > 0);
@@ -105,6 +136,8 @@ router.get("/accounting/summary", async (req, res): Promise<void> => {
     fulfilledCount: fulfilledAnalyses.length,
     totalInsurance: Math.round(totalInsurance * 100) / 100,
     totalVat: Math.round(totalVat * 100) / 100,
+    totalWithholdingTax: Math.round(totalWithholdingTax * 100) / 100,
+    totalStampDuty: Math.round(totalStampDuty * 100) / 100,
     totalOperatingCost: Math.round(totalOperatingCost * 100) / 100,
   });
 });
