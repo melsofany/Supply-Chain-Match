@@ -14,6 +14,36 @@ export interface SupplierRfq {
   createdAt: string;
 }
 
+export interface RfqComparisonItem {
+  id: number;
+  description: string;
+  quantity: number;
+  unit: string | null;
+  notes: string | null;
+}
+
+export interface RfqComparisonRfq {
+  id: number;
+  supplierId: number;
+  supplierName: string | null;
+  rfqNumber: string | null;
+  status: string;
+}
+
+export interface RfqComparisonPrice {
+  id: number;
+  rfqId: number;
+  inquiryItemId: number;
+  quotedPrice: number | null;
+  notes: string | null;
+}
+
+export interface RfqComparison {
+  items: RfqComparisonItem[];
+  rfqs: RfqComparisonRfq[];
+  prices: RfqComparisonPrice[];
+}
+
 export function useSupplierRfqsByInquiry(inquiryId: number) {
   const [data, setData] = useState<SupplierRfq[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +68,31 @@ export function useSupplierRfqsByInquiry(inquiryId: number) {
   }, [fetchData]);
 
   return { data, isLoading, error, refetch: fetchData };
+}
+
+export function useRfqComparison(inquiryId: number) {
+  const [data, setData] = useState<RfqComparison | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    if (!inquiryId) return;
+    setIsLoading(true);
+    try {
+      const json = await customFetch<RfqComparison>(
+        `/api/supplier-rfqs/by-inquiry/${inquiryId}/comparison`
+      );
+      setData(json);
+    } catch {
+    } finally {
+      setIsLoading(false);
+    }
+  }, [inquiryId]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, isLoading, refetch: fetchData };
 }
 
 export function useSupplierRfq(id: number) {
@@ -126,4 +181,56 @@ export function useDeleteSupplierRfq(onSuccess: () => void) {
   }
 
   return { remove, isDeleting };
+}
+
+export function useUpsertRfqItems(rfqId: number, onSuccess: () => void) {
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function save(
+    items: { inquiryItemId: number; quotedPrice: number | null; notes?: string }[]
+  ) {
+    setIsSaving(true);
+    try {
+      await customFetch(`/api/supplier-rfqs/${rfqId}/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      onSuccess();
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return { save, isSaving };
+}
+
+export function useCreateQuotationFromRfqs(inquiryId: number) {
+  const [isCreating, setIsCreating] = useState(false);
+
+  async function create(
+    selections: {
+      inquiryItemId: number;
+      supplierId: number | null;
+      unitPrice: number;
+      rfqId: number | null;
+    }[]
+  ) {
+    setIsCreating(true);
+    try {
+      const result = await customFetch<{ id: number; quotationNumber: string | null }>(
+        `/api/inquiries/${inquiryId}/quotation-from-rfqs`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selections }),
+        }
+      );
+      return result;
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  return { create, isCreating };
 }

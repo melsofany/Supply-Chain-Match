@@ -1,6 +1,17 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, supplierRfqsTable, suppliersTable, inquiriesTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import {
+  db,
+  supplierRfqsTable,
+  supplierRfqItemsTable,
+  suppliersTable,
+  inquiriesTable,
+  inquiryItemsTable,
+  quotationsTable,
+  quotationItemsTable,
+  itemPriceHistoryTable,
+  customersTable,
+} from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -64,6 +75,236 @@ router.get("/supplier-rfqs/by-inquiry/:inquiryId", async (req, res): Promise<voi
     .orderBy(supplierRfqsTable.createdAt);
 
   res.json(rows.map(enrichRfq));
+});
+
+// ── Comparison matrix: items × suppliers with prices ─────────────────────────
+router.get("/supplier-rfqs/by-inquiry/:inquiryId/comparison", async (req, res): Promise<void> => {
+  const inquiryId = Number(req.params.inquiryId);
+  if (isNaN(inquiryId)) {
+    res.status(400).json({ error: "Invalid inquiryId" });
+    return;
+  }
+
+  const [inquiryItems, rfqs, rfqItems] = await Promise.all([
+    db
+      .select({
+        id: inquiryItemsTable.id,
+        description: inquiryItemsTable.description,
+        quantity: inquiryItemsTable.quantity,
+        unit: inquiryItemsTable.unit,
+        notes: inquiryItemsTable.notes,
+      })
+      .from(inquiryItemsTable)
+      .where(eq(inquiryItemsTable.inquiryId, inquiryId)),
+    db
+      .select({
+        id: supplierRfqsTable.id,
+        supplierId: supplierRfqsTable.supplierId,
+        supplierName: suppliersTable.name,
+        rfqNumber: supplierRfqsTable.rfqNumber,
+        status: supplierRfqsTable.status,
+      })
+      .from(supplierRfqsTable)
+      .leftJoin(suppliersTable, eq(supplierRfqsTable.supplierId, suppliersTable.id))
+      .where(eq(supplierRfqsTable.inquiryId, inquiryId)),
+    db
+      .select({
+        id: supplierRfqItemsTable.id,
+        rfqId: supplierRfqItemsTable.rfqId,
+        inquiryItemId: supplierRfqItemsTable.inquiryItemId,
+        quotedPrice: supplierRfqItemsTable.quotedPrice,
+        notes: supplierRfqItemsTable.notes,
+      })
+      .from(supplierRfqItemsTable)
+      .innerJoin(supplierRfqsTable, eq(supplierRfqItemsTable.rfqId, supplierRfqsTable.id))
+      .where(eq(supplierRfqsTable.inquiryId, inquiryId)),
+  ]);
+
+  res.json({
+    items: inquiryItems.map((i) => ({
+      ...i,
+      quantity: Number(i.quantity),
+    })),
+    rfqs,
+    prices: rfqItems.map((p) => ({
+      ...p,
+      quotedPrice: p.quotedPrice != null ? Number(p.quotedPrice) : null,
+    })),
+  });
+});
+
+// ── RFQ item prices (per-item pricing from supplier) ─────────────────────────
+router.post("/supplier-rfqs/:id/items", async (req, res): Promise<void> => {
+  const rfqId = Number(req.params.id);
+  if (isNaN(rfqId)) {
+    res.status(400).json({ error: "Invalid rfq id" });
+    return;
+  }
+
+  const { items } = req.body as {
+    items: { inquiryItemId: number; quotedPrice: number | null; notes?: string }[];
+  };
+
+  if (!Array.isArray(items) || items.length === 0) {
+    res.status(400).json({ error: "items array is required" });
+    return;
+  }
+
+  for (const item of items) {
+    const existing = await db
+      .select({ id: supplierRfqItemsTable.id })
+      .from(supplierRfqItemsTable)
+      .where(
+        and(
+          eq(supplierRfqItemsTable.rfqId, rfqId),
+          eq(supplierRfqItemsTable.inquiryItemId, Number(item.inquiryItemId))
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      await db
+        .update(supplierRfqItemsTable)
+        .set({
+          quotedPrice: item.quotedPrice != null ? String(item.quotedPrice) : null,
+          notes: item.notes ?? null,
+        })
+        .where(eq(supplierRfqItemsTable.id, existing[0].id));
+    } else {
+      await db.insert(supplierRfqItemsTable).values({
+        rfqId,
+        inquiryItemId: Number(item.inquiryItemId),
+        quotedPrice: item.quotedPrice != null ? String(item.quotedPrice) : null,
+        notes: item.notes ?? null,
+      });
+    }
+  }
+
+  const updated = await db
+    .select()
+    .from(supplierRfqItemsTable)
+    .where(eq(supplierRfqItemsTable.rfqId, rfqId));
+
+  res.json(
+    updated.map((r) => ({
+      ...r,
+      quotedPrice: r.quotedPrice != null ? Number(r.quotedPrice) : null,
+    }))
+  );
+});
+
+router.delete("/supplier-rfqs/:rfqId/items/:inquiryItemId", async (req, res): Promise<void> => {
+  const rfqId = Number(req.params.rfqId);
+  const inquiryItemId = Number(req.params.inquiryItemId);
+  if (isNaN(rfqId) || isNaN(inquiryItemId)) {
+    res.status(400).json({ error: "Invalid ids" });
+    return;
+  }
+
+  await db
+    .delete(supplierRfqItemsTable)
+    .where(
+      and(
+        eq(supplierRfqItemsTable.rfqId, rfqId),
+        eq(supplierRfqItemsTable.inquiryItemId, inquiryItemId)
+      )
+    );
+
+  res.sendStatus(204);
+});
+
+// ── Create quotation pre-filled from selected RFQ item prices ─────────────────
+router.post("/inquiries/:id/quotation-from-rfqs", async (req, res): Promise<void> => {
+  const inquiryId = Number(req.params.id);
+  if (isNaN(inquiryId)) {
+    res.status(400).json({ error: "Invalid inquiryId" });
+    return;
+  }
+
+  const {
+    selections,
+  }: {
+    selections: {
+      inquiryItemId: number;
+      supplierId: number | null;
+      unitPrice: number;
+      rfqId: number | null;
+    }[];
+  } = req.body;
+
+  if (!Array.isArray(selections) || selections.length === 0) {
+    res.status(400).json({ error: "selections array is required" });
+    return;
+  }
+
+  const [inquiry] = await db
+    .select({ id: inquiriesTable.id, customerId: inquiriesTable.customerId })
+    .from(inquiriesTable)
+    .where(eq(inquiriesTable.id, inquiryId));
+
+  if (!inquiry) {
+    res.status(404).json({ error: "Inquiry not found" });
+    return;
+  }
+
+  const inquiryItemIds = selections.map((s) => s.inquiryItemId);
+  const allItems = await db
+    .select()
+    .from(inquiryItemsTable)
+    .where(eq(inquiryItemsTable.inquiryId, inquiryId));
+
+  const itemMap = new Map(allItems.map((i) => [i.id, i]));
+
+  const [quotation] = await db
+    .insert(quotationsTable)
+    .values({
+      inquiryId,
+      customerId: inquiry.customerId,
+      status: "draft",
+    })
+    .returning();
+
+  for (const sel of selections) {
+    const item = itemMap.get(Number(sel.inquiryItemId));
+    if (!item) continue;
+    const qty = Number(item.quantity);
+    const unitPrice = Number(sel.unitPrice);
+    const totalPrice = qty * unitPrice;
+
+    await db
+      .insert(quotationItemsTable)
+      .values({
+        quotationId: quotation.id,
+        description: item.description,
+        quantity: String(qty),
+        unit: item.unit ?? null,
+        unitPrice: String(unitPrice),
+        supplierId: sel.supplierId ?? null,
+        notes: item.notes ?? null,
+      });
+
+    await db.insert(itemPriceHistoryTable).values({
+      itemDescription: item.description,
+      supplierId: sel.supplierId ?? null,
+      customerId: inquiry.customerId,
+      quotationId: quotation.id,
+      unitPrice: String(unitPrice),
+      quantity: String(qty),
+      unit: item.unit ?? null,
+      resultedInPo: false,
+    });
+  }
+
+  const [customer] = await db
+    .select({ name: customersTable.name })
+    .from(customersTable)
+    .where(eq(customersTable.id, inquiry.customerId));
+
+  res.status(201).json({
+    ...quotation,
+    customerName: customer?.name ?? null,
+    inquiryId: quotation.inquiryId,
+  });
 });
 
 router.post("/supplier-rfqs", async (req, res): Promise<void> => {

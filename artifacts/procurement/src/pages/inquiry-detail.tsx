@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Plus, Pencil, Trash2, FileText, Send, CheckCircle, Clock, XCircle } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, FileText, Send, CheckCircle, Clock, XCircle, Table2, Star } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetInquiry,
@@ -34,10 +34,14 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import {
   useSupplierRfqsByInquiry,
+  useRfqComparison,
   useCreateSupplierRfq,
   useUpdateSupplierRfq,
   useDeleteSupplierRfq,
+  useUpsertRfqItems,
+  useCreateQuotationFromRfqs,
   type SupplierRfq,
+  type RfqComparisonItem,
 } from "@/hooks/use-supplier-rfqs";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -48,34 +52,54 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const RFQ_STATUS_CONFIG: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
-  pending: { color: "bg-gray-100 text-gray-700", label: "معلق", icon: <Clock className="h-3.5 w-3.5" /> },
-  sent:    { color: "bg-blue-100 text-blue-700", label: "أُرسل", icon: <Send className="h-3.5 w-3.5" /> },
-  received:{ color: "bg-green-100 text-green-800", label: "استُلم الرد", icon: <CheckCircle className="h-3.5 w-3.5" /> },
-  cancelled:{ color: "bg-red-100 text-red-700", label: "ملغي", icon: <XCircle className="h-3.5 w-3.5" /> },
+  pending: { color: "bg-gray-100 text-gray-600", label: "معلق", icon: <Clock className="h-3.5 w-3.5" /> },
+  sent: { color: "bg-blue-100 text-blue-700", label: "أُرسل", icon: <Send className="h-3.5 w-3.5" /> },
+  received: { color: "bg-green-100 text-green-700", label: "استُلم الرد", icon: <CheckCircle className="h-3.5 w-3.5" /> },
+  cancelled: { color: "bg-red-100 text-red-700", label: "ملغي", icon: <XCircle className="h-3.5 w-3.5" /> },
 };
 
-function RfqCard({ rfq, onEdit, onDelete }: { rfq: SupplierRfq; onEdit: (rfq: SupplierRfq) => void; onDelete: (id: number) => void }) {
+function RfqCard({
+  rfq,
+  onEdit,
+  onDelete,
+  onEnterPrices,
+}: {
+  rfq: SupplierRfq;
+  onEdit: (rfq: SupplierRfq) => void;
+  onDelete: (id: number) => void;
+  onEnterPrices: (rfq: SupplierRfq) => void;
+}) {
   const cfg = RFQ_STATUS_CONFIG[rfq.status] ?? RFQ_STATUS_CONFIG.pending;
   return (
     <div className="flex items-center justify-between py-3 border-b last:border-b-0" data-testid={`row-rfq-${rfq.id}`}>
-      <div className="flex-1">
-        <div className="flex items-center gap-2">
-          <p className="text-sm font-medium">{rfq.supplierName ?? `مورد #${rfq.supplierId}`}</p>
-          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
-            {cfg.icon}
-            {cfg.label}
-          </span>
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
+          {cfg.icon}
+          {cfg.label}
+        </span>
+        <div className="min-w-0">
+          <p className="text-sm font-medium truncate">{rfq.supplierName ?? `مورد #${rfq.supplierId}`}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {rfq.rfqNumber && <span>{rfq.rfqNumber} • </span>}
+            {rfq.quotedPrice != null
+              ? <span className="font-semibold text-green-700">سعر إجمالي: {Number(rfq.quotedPrice).toLocaleString()} ج.م</span>
+              : <span className="text-muted-foreground">لم يُحدد سعر إجمالي</span>
+            }
+            {rfq.notes && <span className="ml-2 text-muted-foreground"> • {rfq.notes}</span>}
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          {rfq.rfqNumber && <span className="ml-2">{rfq.rfqNumber} •</span>}
-          {rfq.quotedPrice != null
-            ? <span className="font-semibold text-green-700"> سعر المورد: ${Number(rfq.quotedPrice).toLocaleString()}</span>
-            : <span className="italic"> لم يُستلم سعر بعد</span>
-          }
-          {rfq.notes && <span className="ml-2 text-muted-foreground"> • {rfq.notes}</span>}
-        </p>
       </div>
-      <div className="flex gap-1">
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {(rfq.status === "sent" || rfq.status === "received") && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => onEnterPrices(rfq)}
+          >
+            أسعار البنود
+          </Button>
+        )}
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(rfq)}>
           <Pencil className="h-3.5 w-3.5" />
         </Button>
@@ -97,10 +121,7 @@ export default function InquiryDetail() {
   const { data: inquiry, isLoading } = useGetInquiry(numId, {
     query: { enabled: !!numId, queryKey: getGetInquiryQueryKey(numId) },
   });
-  const { data: suppliers } = useListSuppliers({
-    query: { queryKey: getListSuppliersQueryKey() },
-  });
-
+  const { data: suppliers } = useListSuppliers({ query: { queryKey: getListSuppliersQueryKey() } });
   const updateInquiry = useUpdateInquiry();
   const addItem = useAddInquiryItem();
   const updateItem = useUpdateInquiryItem();
@@ -109,23 +130,56 @@ export default function InquiryDetail() {
 
   // RFQ state
   const { data: rfqs, isLoading: isLoadingRfqs, refetch: refetchRfqs } = useSupplierRfqsByInquiry(numId);
-  const { create: createRfq, isCreating: isCreatingRfq } = useCreateSupplierRfq(refetchRfqs);
-  const { remove: deleteRfq } = useDeleteSupplierRfq(refetchRfqs);
-
-  const [editingRfq, setEditingRfq] = useState<SupplierRfq | null>(null);
-  const { update: updateRfq, isUpdating: isUpdatingRfq } = useUpdateSupplierRfq(editingRfq?.id ?? 0, refetchRfqs);
-
-  const [itemDialogOpen, setItemDialogOpen] = useState(false);
-  const [editingItemId, setEditingItemId] = useState<number | null>(null);
-  const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
-  const [itemForm, setItemForm] = useState({ description: "", quantity: "", unit: "", notes: "" });
-
-  const [rfqDialogOpen, setRfqDialogOpen] = useState(false);
-  const [rfqDeleteId, setRfqDeleteId] = useState<number | null>(null);
-  const [rfqForm, setRfqForm] = useState({
-    supplierId: "", rfqNumber: "", quotedPrice: "", status: "pending", notes: "",
+  const { data: comparison, refetch: refetchComparison } = useRfqComparison(numId);
+  const { create: createRfq, isCreating: isCreatingRfq } = useCreateSupplierRfq(() => {
+    refetchRfqs();
+    refetchComparison();
   });
 
+  // Inquiry item dialog
+  const [itemDialogOpen, setItemDialogOpen] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<number | null>(null);
+  const [itemForm, setItemForm] = useState({ description: "", quantity: "", unit: "", notes: "" });
+  const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
+
+  // RFQ dialog
+  const [rfqDialogOpen, setRfqDialogOpen] = useState(false);
+  const [editingRfq, setEditingRfq] = useState<SupplierRfq | null>(null);
+  const [rfqForm, setRfqForm] = useState({ supplierId: "", rfqNumber: "", quotedPrice: "", status: "pending", notes: "" });
+  const [rfqDeleteId, setRfqDeleteId] = useState<number | null>(null);
+
+  // Per-item price dialog
+  const [priceDialogRfq, setPriceDialogRfq] = useState<SupplierRfq | null>(null);
+  const [itemPrices, setItemPrices] = useState<Record<number, string>>({}); // inquiryItemId -> price string
+
+  // Quotation-from-RFQ dialog
+  const [quotationDialogOpen, setQuotationDialogOpen] = useState(false);
+  const [selectedPrices, setSelectedPrices] = useState<Record<number, { rfqId: number; supplierId: number | null; unitPrice: number } | null>>({}); // inquiryItemId -> selection
+
+  const { isUpdating: isUpdatingRfq, update: updateRfqFn } = useUpdateSupplierRfq(
+    editingRfq?.id ?? 0,
+    () => { refetchRfqs(); refetchComparison(); }
+  );
+  const { remove: deleteRfqFn, isDeleting } = useDeleteSupplierRfq(() => {
+    refetchRfqs();
+    refetchComparison();
+  });
+
+  const { save: saveItemPrices, isSaving: isSavingPrices } = useUpsertRfqItems(
+    priceDialogRfq?.id ?? 0,
+    () => { refetchComparison(); }
+  );
+
+  const { create: createQuotationFromRfqs, isCreating: isCreatingFromRfqs } = useCreateQuotationFromRfqs(numId);
+
+  function handleStatusChange(value: string) {
+    updateInquiry.mutate(
+      { id: numId, data: { status: value as any } },
+      { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) }); qc.invalidateQueries({ queryKey: getListInquiriesQueryKey() }); toast({ title: "تم تحديث الحالة" }); } }
+    );
+  }
+
+  // ── Inquiry items ──────────────────────────────────────────────────────────
   function openAddItem() {
     setEditingItemId(null);
     setItemForm({ description: "", quantity: "", unit: "", notes: "" });
@@ -175,13 +229,7 @@ export default function InquiryDetail() {
     );
   }
 
-  function handleStatusChange(status: string) {
-    updateInquiry.mutate(
-      { id: numId, data: { status: status as any } },
-      { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) }); qc.invalidateQueries({ queryKey: getListInquiriesQueryKey() }); toast({ title: "تم تحديث الحالة" }); } }
-    );
-  }
-
+  // ── Create quotation (empty) from inquiry ─────────────────────────────────
   function handleCreateQuotation() {
     if (!inquiry) return;
     createQuotation.mutate(
@@ -193,13 +241,14 @@ export default function InquiryDetail() {
             { id: numId, data: { status: "quoted" as any } },
             { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) }); qc.invalidateQueries({ queryKey: getListInquiriesQueryKey() }); } }
           );
-          toast({ title: "تم إنشاء عرض السعر — تم تحديث حالة الاستفسار إلى «تم تقديم العرض»" });
+          toast({ title: "تم إنشاء عرض السعر" });
           setLocation(`/quotations/${newQ.id}`);
         },
       }
     );
   }
 
+  // ── RFQ management ────────────────────────────────────────────────────────
   function openAddRfq() {
     setEditingRfq(null);
     setRfqForm({ supplierId: "", rfqNumber: "", quotedPrice: "", status: "pending", notes: "" });
@@ -224,7 +273,7 @@ export default function InquiryDetail() {
       return;
     }
     if (editingRfq) {
-      updateRfq(
+      updateRfqFn(
         {
           status: rfqForm.status as any,
           ...(rfqForm.quotedPrice && { quotedPrice: Number(rfqForm.quotedPrice) }),
@@ -247,10 +296,86 @@ export default function InquiryDetail() {
 
   function handleDeleteRfq() {
     if (rfqDeleteId == null) return;
-    deleteRfq(rfqDeleteId);
+    deleteRfqFn(rfqDeleteId);
     setRfqDeleteId(null);
     toast({ title: "تم حذف طلب التسعير" });
   }
+
+  // ── Per-item price entry ──────────────────────────────────────────────────
+  function openEnterPrices(rfq: SupplierRfq) {
+    setPriceDialogRfq(rfq);
+    if (!comparison) { setItemPrices({}); return; }
+    const existingPrices: Record<number, string> = {};
+    for (const p of comparison.prices) {
+      if (p.rfqId === rfq.id && p.quotedPrice != null) {
+        existingPrices[p.inquiryItemId] = String(p.quotedPrice);
+      }
+    }
+    setItemPrices(existingPrices);
+  }
+
+  async function handleSaveItemPrices() {
+    if (!priceDialogRfq || !comparison) return;
+    const items = comparison.items.map((item) => ({
+      inquiryItemId: item.id,
+      quotedPrice: itemPrices[item.id] ? Number(itemPrices[item.id]) : null,
+    }));
+    await saveItemPrices(items);
+    toast({ title: "تم حفظ أسعار البنود" });
+    setPriceDialogRfq(null);
+  }
+
+  // ── Create quotation from RFQ selected prices ────────────────────────────
+  function openQuotationFromRfqs() {
+    if (!comparison) return;
+    const initial: Record<number, { rfqId: number; supplierId: number | null; unitPrice: number } | null> = {};
+    for (const item of comparison.items) {
+      const prices = comparison.prices.filter((p) => p.rfqId !== null && p.inquiryItemId === item.id && p.quotedPrice != null);
+      if (prices.length > 0) {
+        const lowest = prices.reduce((a, b) => (a.quotedPrice! < b.quotedPrice! ? a : b));
+        const rfq = comparison.rfqs.find((r) => r.id === lowest.rfqId);
+        initial[item.id] = { rfqId: lowest.rfqId, supplierId: rfq?.supplierId ?? null, unitPrice: lowest.quotedPrice! };
+      } else {
+        initial[item.id] = null;
+      }
+    }
+    setSelectedPrices(initial);
+    setQuotationDialogOpen(true);
+  }
+
+  async function handleCreateQuotationFromRfqs() {
+    const selections = Object.entries(selectedPrices)
+      .filter(([, v]) => v != null)
+      .map(([itemId, v]) => ({
+        inquiryItemId: Number(itemId),
+        supplierId: v!.supplierId,
+        unitPrice: v!.unitPrice,
+        rfqId: v!.rfqId,
+      }));
+
+    if (selections.length === 0) {
+      toast({ title: "اختر سعراً لبند واحد على الأقل", variant: "destructive" });
+      return;
+    }
+
+    try {
+      const newQ = await createQuotationFromRfqs(selections);
+      qc.invalidateQueries({ queryKey: getListQuotationsQueryKey() });
+      updateInquiry.mutate(
+        { id: numId, data: { status: "quoted" as any } },
+        { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) }); qc.invalidateQueries({ queryKey: getListInquiriesQueryKey() }); } }
+      );
+      toast({ title: "تم إنشاء عرض السعر بأسعار الموردين المختارة" });
+      setQuotationDialogOpen(false);
+      setLocation(`/quotations/${newQ.id}`);
+    } catch (e: any) {
+      toast({ title: e?.message ?? "فشل إنشاء عرض السعر", variant: "destructive" });
+    }
+  }
+
+  // ── Derived data ──────────────────────────────────────────────────────────
+  const hasPricesInComparison = comparison && comparison.prices.some((p) => p.quotedPrice != null);
+  const receivedRfqs = rfqs.filter((r) => r.status === "received");
 
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-40 w-full" /></div>;
@@ -265,10 +390,9 @@ export default function InquiryDetail() {
     );
   }
 
-  const receivedRfqs = rfqs.filter(r => r.status === "received" && r.quotedPrice != null);
-
   return (
     <div className="space-y-6">
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => setLocation("/inquiries")}>
           <ArrowLeft className="h-4 w-4" />
@@ -277,12 +401,12 @@ export default function InquiryDetail() {
           <h1 className="text-2xl font-bold tracking-tight">{inquiry.title}</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
             {inquiry.customerName ?? `عميل #${inquiry.customerId}`} •{" "}
-            {new Date(inquiry.createdAt).toLocaleDateString()}
+            {new Date(inquiry.createdAt).toLocaleDateString("ar-EG")}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <Select value={inquiry.status} onValueChange={handleStatusChange}>
-            <SelectTrigger className="w-36" data-testid="select-inquiry-status">
+            <SelectTrigger className="w-40" data-testid="select-inquiry-status">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -292,9 +416,9 @@ export default function InquiryDetail() {
               <SelectItem value="closed">مغلق</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={handleCreateQuotation} disabled={createQuotation.isPending} data-testid="button-create-quotation-from-inquiry">
+          <Button variant="outline" onClick={handleCreateQuotation} disabled={createQuotation.isPending} data-testid="button-create-quotation-from-inquiry">
             <FileText className="h-4 w-4 mr-2" />
-            إنشاء عرض سعر
+            عرض سعر فارغ
           </Button>
         </div>
       </div>
@@ -305,7 +429,7 @@ export default function InquiryDetail() {
         </Card>
       )}
 
-      {/* بنود الاستفسار */}
+      {/* ── Inquiry items ──────────────────────────────────────────────────── */}
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <CardTitle className="text-base">البنود المطلوبة</CardTitle>
@@ -343,7 +467,7 @@ export default function InquiryDetail() {
         </CardContent>
       </Card>
 
-      {/* ===== قسم طلبات تسعير الموردين ===== */}
+      {/* ── Supplier RFQs ──────────────────────────────────────────────────── */}
       <Card className="border-blue-100">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <div>
@@ -352,21 +476,18 @@ export default function InquiryDetail() {
               طلبات تسعير الموردين
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              الطلبات المرسلة للموردين بناءً على هذا الاستفسار
+              أرسل طلبات للموردين وأدخل أسعارهم لكل بند ثم قارن واختر الأنسب
               {rfqs.length > 0 && <span className="ml-1">({rfqs.length} طلب)</span>}
             </p>
           </div>
           <Button size="sm" onClick={openAddRfq} data-testid="button-add-rfq">
             <Plus className="h-3.5 w-3.5 mr-1.5" />
-            طلب تسعير مورد
+            طلب تسعير جديد
           </Button>
         </CardHeader>
         <CardContent>
           {isLoadingRfqs ? (
-            <div className="space-y-2">
-              <Skeleton className="h-10 w-full" />
-              <Skeleton className="h-10 w-full" />
-            </div>
+            <div className="space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
           ) : rfqs.length === 0 ? (
             <div className="text-center py-6">
               <Send className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
@@ -384,32 +505,115 @@ export default function InquiryDetail() {
                   rfq={rfq}
                   onEdit={openEditRfq}
                   onDelete={(id) => setRfqDeleteId(id)}
+                  onEnterPrices={openEnterPrices}
                 />
               ))}
-              {receivedRfqs.length > 0 && (
-                <div className="mt-4 p-3 bg-green-50 rounded-md border border-green-100">
-                  <p className="text-xs font-medium text-green-800 mb-2">
-                    ✓ استُلمت أسعار من {receivedRfqs.length} مورد
-                  </p>
-                  <div className="space-y-1">
-                    {receivedRfqs.map((r) => (
-                      <div key={r.id} className="flex justify-between text-sm">
-                        <span className="text-green-700">{r.supplierName}</span>
-                        <span className="font-semibold text-green-800">${Number(r.quotedPrice).toLocaleString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-green-600 mt-2">
-                    يمكنك الآن إنشاء عرض سعر للعميل بناءً على أفضل سعر.
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* ====== Dialogs ====== */}
+      {/* ── Price comparison table ─────────────────────────────────────────── */}
+      {comparison && comparison.rfqs.length > 0 && comparison.items.length > 0 && (
+        <Card className="border-green-100">
+          <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Table2 className="h-4 w-4 text-green-600" />
+                مقارنة أسعار الموردين
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                مقارنة أسعار البنود من كل المورّدين — أدخل أسعار البنود باستخدام زر "أسعار البنود" في كل طلب
+              </p>
+            </div>
+            {hasPricesInComparison && (
+              <Button
+                size="sm"
+                onClick={openQuotationFromRfqs}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                <FileText className="h-3.5 w-3.5 mr-1.5" />
+                إنشاء عرض سعر من الأسعار
+              </Button>
+            )}
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-right py-2 pr-3 font-medium text-muted-foreground min-w-[160px]">البند</th>
+                  <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">الكمية</th>
+                  {comparison.rfqs.map((rfq) => (
+                    <th key={rfq.id} className="text-center py-2 px-3 font-medium min-w-[110px]">
+                      <p className="text-xs truncate max-w-[100px]">{rfq.supplierName ?? `مورد #${rfq.supplierId}`}</p>
+                      <p className={`text-[10px] font-normal mt-0.5 ${
+                        rfq.status === "received" ? "text-green-600" :
+                        rfq.status === "sent" ? "text-blue-600" : "text-muted-foreground"
+                      }`}>
+                        {rfq.status === "received" ? "✓ استُلم الرد" : rfq.status === "sent" ? "أُرسل" : "معلق"}
+                      </p>
+                    </th>
+                  ))}
+                  <th className="text-center py-2 px-3 font-medium text-green-700 text-xs min-w-[80px]">الأقل سعراً</th>
+                </tr>
+              </thead>
+              <tbody>
+                {comparison.items.map((item) => {
+                  const itemPricesList = comparison.rfqs.map((rfq) => {
+                    const p = comparison.prices.find(
+                      (px) => px.rfqId === rfq.id && px.inquiryItemId === item.id
+                    );
+                    return p?.quotedPrice ?? null;
+                  });
+                  const validPrices = itemPricesList.filter((p): p is number => p != null);
+                  const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : null;
+
+                  return (
+                    <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/30">
+                      <td className="py-3 pr-3">
+                        <p className="font-medium">{item.description}</p>
+                        {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
+                      </td>
+                      <td className="py-3 px-2 text-muted-foreground text-xs whitespace-nowrap">
+                        {item.quantity} {item.unit ?? ""}
+                      </td>
+                      {comparison.rfqs.map((rfq, i) => {
+                        const price = itemPricesList[i];
+                        const isLowest = price != null && price === minPrice && validPrices.length > 1;
+                        return (
+                          <td key={rfq.id} className="py-3 px-3 text-center">
+                            {price != null ? (
+                              <span className={`font-semibold ${isLowest ? "text-green-700" : ""}`}>
+                                {isLowest && <Star className="h-3 w-3 inline mr-0.5 fill-green-600 text-green-600" />}
+                                {price.toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="py-3 px-3 text-center">
+                        {minPrice != null ? (
+                          <span className="text-green-700 font-bold text-xs">
+                            {minPrice.toLocaleString()} ج.م
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          DIALOGS
+      ══════════════════════════════════════════════════════════════════════ */}
 
       {/* بند الاستفسار */}
       <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
@@ -433,8 +637,8 @@ export default function InquiryDetail() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>ملاحظات</Label>
-              <Textarea rows={2} value={itemForm.notes} onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })} />
+              <Label>ملاحظات / المواصفات</Label>
+              <Textarea rows={2} value={itemForm.notes} onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })} placeholder="المواصفات التفصيلية للبند..." />
             </div>
           </div>
           <DialogFooter>
@@ -450,7 +654,7 @@ export default function InquiryDetail() {
       <Dialog open={rfqDialogOpen} onOpenChange={setRfqDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingRfq ? "تعديل طلب تسعير المورد" : "طلب تسعير من مورد"}</DialogTitle>
+            <DialogTitle>{editingRfq ? "تعديل طلب التسعير" : "طلب تسعير من مورد"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -473,18 +677,12 @@ export default function InquiryDetail() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>رقم الطلب</Label>
-                <Input
-                  value={rfqForm.rfqNumber}
-                  onChange={(e) => setRfqForm({ ...rfqForm, rfqNumber: e.target.value })}
-                  placeholder="RFQ-001"
-                />
+                <Input value={rfqForm.rfqNumber} onChange={(e) => setRfqForm({ ...rfqForm, rfqNumber: e.target.value })} placeholder="RFQ-001" />
               </div>
               <div className="space-y-1.5">
                 <Label>الحالة</Label>
                 <Select value={rfqForm.status} onValueChange={(v) => setRfqForm({ ...rfqForm, status: v })}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="pending">معلق</SelectItem>
                     <SelectItem value="sent">أُرسل للمورد</SelectItem>
@@ -495,9 +693,8 @@ export default function InquiryDetail() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>السعر المعروض من المورد</Label>
+              <Label>السعر الإجمالي المعروض (اختياري)</Label>
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">$</span>
                 <Input
                   type="number"
                   min="0"
@@ -506,7 +703,9 @@ export default function InquiryDetail() {
                   onChange={(e) => setRfqForm({ ...rfqForm, quotedPrice: e.target.value })}
                   placeholder="يُملأ عند استلام رد المورد"
                 />
+                <span className="text-sm text-muted-foreground whitespace-nowrap">ج.م</span>
               </div>
+              <p className="text-xs text-muted-foreground">للتسعير بالبند استخدم زر "أسعار البنود" بعد استلام الرد</p>
             </div>
             <div className="space-y-1.5">
               <Label>ملاحظات</Label>
@@ -517,6 +716,164 @@ export default function InquiryDetail() {
             <Button variant="outline" onClick={() => setRfqDialogOpen(false)}>إلغاء</Button>
             <Button onClick={handleRfqSubmit} disabled={isCreatingRfq || isUpdatingRfq}>
               {editingRfq ? "تحديث" : "إرسال الطلب"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* إدخال أسعار البنود من مورد */}
+      <Dialog open={!!priceDialogRfq} onOpenChange={(o) => !o && setPriceDialogRfq(null)}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>
+              أسعار البنود — {priceDialogRfq?.supplierName ?? `مورد #${priceDialogRfq?.supplierId}`}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <p className="text-sm text-muted-foreground mb-4">
+              أدخل سعر الوحدة الذي عرضه هذا المورد لكل بند. اترك الحقل فارغاً إذا لم يُقدم سعراً للبند.
+            </p>
+            {comparison && comparison.items.length > 0 ? (
+              <div className="space-y-3">
+                {comparison.items.map((item) => (
+                  <div key={item.id} className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{item.description}</p>
+                      <p className="text-xs text-muted-foreground">{item.quantity} {item.unit ?? "وحدة"}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className="w-28"
+                        placeholder="السعر"
+                        value={itemPrices[item.id] ?? ""}
+                        onChange={(e) => setItemPrices((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                      />
+                      <span className="text-xs text-muted-foreground w-8">ج.م</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                أضف بنوداً للاستفسار أولاً لتتمكن من إدخال أسعارها.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPriceDialogRfq(null)}>إلغاء</Button>
+            <Button onClick={handleSaveItemPrices} disabled={isSavingPrices}>
+              حفظ الأسعار
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* إنشاء عرض سعر من أسعار الموردين */}
+      <Dialog open={quotationDialogOpen} onOpenChange={setQuotationDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-green-600" />
+              إنشاء عرض سعر من أسعار الموردين
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <p className="text-sm text-muted-foreground mb-4">
+              اختر لكل بند المورد الذي ستعتمد سعره في عرض السعر للعميل. النجمة ⭐ تشير لأقل سعر.
+            </p>
+            {comparison && (
+              <div className="space-y-4">
+                {comparison.items.map((item) => {
+                  const itemPriceOptions = comparison.prices
+                    .filter((p) => p.inquiryItemId === item.id && p.quotedPrice != null)
+                    .map((p) => {
+                      const rfq = comparison.rfqs.find((r) => r.id === p.rfqId);
+                      return { rfqId: p.rfqId, supplierId: rfq?.supplierId ?? null, supplierName: rfq?.supplierName ?? null, unitPrice: p.quotedPrice! };
+                    });
+
+                  if (itemPriceOptions.length === 0) return null;
+
+                  const minPrice = Math.min(...itemPriceOptions.map((o) => o.unitPrice));
+                  const selected = selectedPrices[item.id];
+                  const totalPrice = selected ? item.quantity * selected.unitPrice : null;
+
+                  return (
+                    <div key={item.id} className="rounded-md border p-3">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-sm">{item.description}</p>
+                          <p className="text-xs text-muted-foreground">الكمية: {item.quantity} {item.unit ?? ""}</p>
+                        </div>
+                        {totalPrice != null && (
+                          <span className="text-sm font-bold text-green-700">
+                            الإجمالي: {totalPrice.toLocaleString()} ج.م
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {itemPriceOptions.map((opt) => {
+                          const isSelected = selected?.rfqId === opt.rfqId;
+                          const isLowest = opt.unitPrice === minPrice && itemPriceOptions.length > 1;
+                          return (
+                            <button
+                              key={opt.rfqId}
+                              onClick={() => setSelectedPrices((prev) => ({
+                                ...prev,
+                                [item.id]: isSelected ? null : { rfqId: opt.rfqId, supplierId: opt.supplierId, unitPrice: opt.unitPrice },
+                              }))}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                                isSelected
+                                  ? "bg-green-600 text-white border-green-600"
+                                  : "border-gray-200 hover:border-green-400 hover:bg-green-50"
+                              }`}
+                            >
+                              {isLowest && <Star className={`h-3 w-3 ${isSelected ? "fill-white text-white" : "fill-green-500 text-green-500"}`} />}
+                              <span>{opt.supplierName ?? `مورد #${opt.supplierId}`}</span>
+                              <span className="font-semibold">{opt.unitPrice.toLocaleString()} ج.م</span>
+                            </button>
+                          );
+                        })}
+                        <button
+                          onClick={() => setSelectedPrices((prev) => ({ ...prev, [item.id]: null }))}
+                          className={`px-3 py-1.5 rounded-full border text-sm transition-colors ${
+                            !selected ? "bg-gray-100 border-gray-300 text-gray-600" : "border-gray-200 text-muted-foreground hover:bg-gray-50"
+                          }`}
+                        >
+                          تجاهل هذا البند
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }).filter(Boolean)}
+              </div>
+            )}
+
+            {/* Totals summary */}
+            {comparison && (
+              <div className="mt-4 p-3 bg-green-50 rounded-md border border-green-100">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-green-800">
+                    البنود المختارة: {Object.values(selectedPrices).filter((v) => v != null).length} من {comparison.items.filter((item) => comparison.prices.some((p) => p.inquiryItemId === item.id && p.quotedPrice != null)).length}
+                  </span>
+                  <span className="text-sm font-bold text-green-800">
+                    الإجمالي: {Object.entries(selectedPrices).reduce((sum, [itemId, sel]) => {
+                      if (!sel) return sum;
+                      const item = comparison.items.find((i) => i.id === Number(itemId));
+                      return sum + (item ? item.quantity * sel.unitPrice : 0);
+                    }, 0).toLocaleString()} ج.م
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuotationDialogOpen(false)}>إلغاء</Button>
+            <Button onClick={handleCreateQuotationFromRfqs} disabled={isCreatingFromRfqs} className="bg-green-600 hover:bg-green-700">
+              <FileText className="h-4 w-4 mr-1.5" />
+              إنشاء عرض السعر
             </Button>
           </DialogFooter>
         </DialogContent>
