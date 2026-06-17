@@ -34,8 +34,8 @@ function Router() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center font-bold text-primary-foreground text-sm">TR</div>
+        <div className="flex flex-col items-center gap-4">
+          <img src="/logo.jpeg" alt="AL-KHEDIVI" className="h-16 w-auto object-contain" />
           <p className="text-sm text-muted-foreground">جارٍ التحميل...</p>
         </div>
       </div>
