@@ -3,6 +3,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Shell } from "@/components/layout/shell";
+import { AuthProvider, useAuth } from "@/context/auth-context";
+import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import Customers from "@/pages/customers";
@@ -22,10 +24,28 @@ import DeliveryNoteDetail from "@/pages/delivery-note-detail";
 import Invoices from "@/pages/invoices";
 import InvoiceDetail from "@/pages/invoice-detail";
 import Reports from "@/pages/reports";
+import UsersPage from "@/pages/users";
 
 const queryClient = new QueryClient();
 
 function Router() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center font-bold text-primary-foreground text-sm">TR</div>
+          <p className="text-sm text-muted-foreground">جارٍ التحميل...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login />;
+  }
+
   return (
     <Shell>
       <Switch>
@@ -49,6 +69,7 @@ function Router() {
         <Route path="/invoices/:id" component={InvoiceDetail} />
         <Route path="/reports" component={Reports} />
         <Route path="/accounting" component={Accounting} />
+        <Route path="/users" component={UsersPage} />
         <Route component={NotFound} />
       </Switch>
     </Shell>
@@ -60,7 +81,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
+          <AuthProvider>
+            <Router />
+          </AuthProvider>
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

@@ -7,3 +7,4 @@ export * from "./accounting";
 export * from "./supplier-rfqs";
 export * from "./delivery-notes";
 export * from "./invoices";
+export * from "./users";
