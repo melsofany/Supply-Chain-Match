@@ -3,20 +3,34 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: General Supplies Procurement Management System
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: customers
+    description: Customer management
+  - name: suppliers
+    description: Supplier management
+  - name: inquiries
+    description: Customer inquiry/need management
+  - name: quotations
+    description: Quotation management
+  - name: customer-pos
+    description: Customer purchase orders
+  - name: supplier-pos
+    description: Supplier purchase orders
+  - name: dashboard
+    description: Dashboard summaries
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +38,1303 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── CUSTOMERS ───────────────────────────────────────────────────────────────
+  /customers:
+    get:
+      operationId: listCustomers
+      tags: [customers]
+      summary: List all customers
+      responses:
+        "200":
+          description: List of customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Customer"
+    post:
+      operationId: createCustomer
+      tags: [customers]
+      summary: Create a new customer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+
+  /customers/{id}:
+    get:
+      operationId: getCustomer
+      tags: [customers]
+      summary: Get a customer by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCustomer
+      tags: [customers]
+      summary: Update a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Customer"
+    delete:
+      operationId: deleteCustomer
+      tags: [customers]
+      summary: Delete a customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── SUPPLIERS ───────────────────────────────────────────────────────────────
+  /suppliers:
+    get:
+      operationId: listSuppliers
+      tags: [suppliers]
+      summary: List all suppliers
+      responses:
+        "200":
+          description: List of suppliers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Supplier"
+    post:
+      operationId: createSupplier
+      tags: [suppliers]
+      summary: Create a new supplier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+
+  /suppliers/{id}:
+    get:
+      operationId: getSupplier
+      tags: [suppliers]
+      summary: Get a supplier by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Supplier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSupplier
+      tags: [suppliers]
+      summary: Update a supplier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Supplier"
+    delete:
+      operationId: deleteSupplier
+      tags: [suppliers]
+      summary: Delete a supplier
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── INQUIRIES ───────────────────────────────────────────────────────────────
+  /inquiries:
+    get:
+      operationId: listInquiries
+      tags: [inquiries]
+      summary: List all inquiries
+      responses:
+        "200":
+          description: List of inquiries with items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InquiryWithItems"
+    post:
+      operationId: createInquiry
+      tags: [inquiries]
+      summary: Create a new inquiry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InquiryInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inquiry"
+
+  /inquiries/{id}:
+    get:
+      operationId: getInquiry
+      tags: [inquiries]
+      summary: Get an inquiry by ID (with items)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Inquiry with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InquiryWithItems"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateInquiry
+      tags: [inquiries]
+      summary: Update an inquiry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InquiryUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Inquiry"
+    delete:
+      operationId: deleteInquiry
+      tags: [inquiries]
+      summary: Delete an inquiry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /inquiries/{id}/items:
+    post:
+      operationId: addInquiryItem
+      tags: [inquiries]
+      summary: Add an item to an inquiry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InquiryItemInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InquiryItem"
+
+  /inquiries/{id}/items/{itemId}:
+    patch:
+      operationId: updateInquiryItem
+      tags: [inquiries]
+      summary: Update an inquiry item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InquiryItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InquiryItem"
+    delete:
+      operationId: deleteInquiryItem
+      tags: [inquiries]
+      summary: Delete an inquiry item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── QUOTATIONS ──────────────────────────────────────────────────────────────
+  /quotations:
+    get:
+      operationId: listQuotations
+      tags: [quotations]
+      summary: List all quotations
+      responses:
+        "200":
+          description: List of quotations with items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/QuotationWithItems"
+    post:
+      operationId: createQuotation
+      tags: [quotations]
+      summary: Create a new quotation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quotation"
+
+  /quotations/{id}:
+    get:
+      operationId: getQuotation
+      tags: [quotations]
+      summary: Get a quotation by ID (with items)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Quotation with items
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotationWithItems"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateQuotation
+      tags: [quotations]
+      summary: Update a quotation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotationUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quotation"
+    delete:
+      operationId: deleteQuotation
+      tags: [quotations]
+      summary: Delete a quotation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /quotations/{id}/items:
+    post:
+      operationId: addQuotationItem
+      tags: [quotations]
+      summary: Add an item to a quotation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotationItemInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotationItem"
+
+  /quotations/{id}/items/{itemId}:
+    patch:
+      operationId: updateQuotationItem
+      tags: [quotations]
+      summary: Update a quotation item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuotationItemUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuotationItem"
+    delete:
+      operationId: deleteQuotationItem
+      tags: [quotations]
+      summary: Delete a quotation item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /quotations/{id}/approve:
+    post:
+      operationId: approveQuotation
+      tags: [quotations]
+      summary: Mark a quotation as approved by the customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated quotation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quotation"
+
+  /quotations/{id}/reject:
+    post:
+      operationId: rejectQuotation
+      tags: [quotations]
+      summary: Mark a quotation as rejected by the customer
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated quotation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Quotation"
+
+  # ─── CUSTOMER POs ─────────────────────────────────────────────────────────────
+  /customer-pos:
+    get:
+      operationId: listCustomerPos
+      tags: [customer-pos]
+      summary: List all customer purchase orders
+      responses:
+        "200":
+          description: List of customer POs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomerPo"
+    post:
+      operationId: createCustomerPo
+      tags: [customer-pos]
+      summary: Create a customer purchase order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPoInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPo"
+
+  /customer-pos/{id}:
+    get:
+      operationId: getCustomerPo
+      tags: [customer-pos]
+      summary: Get a customer PO by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Customer PO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPo"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateCustomerPo
+      tags: [customer-pos]
+      summary: Update a customer PO
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomerPoUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomerPo"
+
+  # ─── SUPPLIER POs ─────────────────────────────────────────────────────────────
+  /supplier-pos:
+    get:
+      operationId: listSupplierPos
+      tags: [supplier-pos]
+      summary: List all supplier purchase orders
+      responses:
+        "200":
+          description: List of supplier POs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SupplierPo"
+    post:
+      operationId: createSupplierPo
+      tags: [supplier-pos]
+      summary: Create a supplier purchase order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierPoInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierPo"
+
+  /supplier-pos/{id}:
+    get:
+      operationId: getSupplierPo
+      tags: [supplier-pos]
+      summary: Get a supplier PO by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Supplier PO
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierPo"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateSupplierPo
+      tags: [supplier-pos]
+      summary: Update a supplier PO
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupplierPoUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupplierPo"
+
+  # ─── DASHBOARD ────────────────────────────────────────────────────────────────
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard pipeline summary
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      responses:
+        "200":
+          description: Recent activity items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    # ─── CUSTOMER ──────────────────────────────────────────────────────────────
+    Customer:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        contactName:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    CustomerInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        contactName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        notes:
+          type: string
+
+    CustomerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        contactName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        notes:
+          type: string
+
+    # ─── SUPPLIER ──────────────────────────────────────────────────────────────
+    Supplier:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        contactName:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        category:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    SupplierInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        contactName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        category:
+          type: string
+        notes:
+          type: string
+
+    SupplierUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        contactName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
+        category:
+          type: string
+        notes:
+          type: string
+
+    # ─── INQUIRY ───────────────────────────────────────────────────────────────
+    Inquiry:
+      type: object
+      required: [id, customerId, title, status, createdAt]
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: ["string", "null"]
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [new, in_progress, quoted, closed]
+        createdAt:
+          type: string
+          format: date-time
+
+    InquiryItem:
+      type: object
+      required: [id, inquiryId, description, quantity]
+      properties:
+        id:
+          type: integer
+        inquiryId:
+          type: integer
+        description:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    InquiryWithItems:
+      type: object
+      required: [id, customerId, title, status, createdAt, items]
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: ["string", "null"]
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [new, in_progress, quoted, closed]
+        createdAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/InquiryItem"
+
+    InquiryInput:
+      type: object
+      required: [customerId, title]
+      properties:
+        customerId:
+          type: integer
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        status:
+          type: string
+          enum: [new, in_progress, quoted, closed]
+
+    InquiryUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+        description:
+          type: string
+        status:
+          type: string
+          enum: [new, in_progress, quoted, closed]
+
+    InquiryItemInput:
+      type: object
+      required: [description, quantity]
+      properties:
+        description:
+          type: string
+          minLength: 1
+        quantity:
+          type: number
+        unit:
+          type: string
+        notes:
+          type: string
+
+    InquiryItemUpdate:
+      type: object
+      properties:
+        description:
+          type: string
+          minLength: 1
+        quantity:
+          type: number
+        unit:
+          type: string
+        notes:
+          type: string
+
+    # ─── QUOTATION ─────────────────────────────────────────────────────────────
+    Quotation:
+      type: object
+      required: [id, inquiryId, customerId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        inquiryId:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: ["string", "null"]
+        quotationNumber:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, sent, approved, rejected]
+        totalAmount:
+          type: ["number", "null"]
+        validUntil:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    QuotationItem:
+      type: object
+      required: [id, quotationId, description, quantity, unitPrice]
+      properties:
+        id:
+          type: integer
+        quotationId:
+          type: integer
+        supplierId:
+          type: ["integer", "null"]
+        supplierName:
+          type: ["string", "null"]
+        description:
+          type: string
+        quantity:
+          type: number
+        unit:
+          type: ["string", "null"]
+        unitPrice:
+          type: number
+        totalPrice:
+          type: number
+        notes:
+          type: ["string", "null"]
+
+    QuotationWithItems:
+      type: object
+      required: [id, inquiryId, customerId, status, createdAt, items]
+      properties:
+        id:
+          type: integer
+        inquiryId:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: ["string", "null"]
+        quotationNumber:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, sent, approved, rejected]
+        totalAmount:
+          type: ["number", "null"]
+        validUntil:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuotationItem"
+
+    QuotationInput:
+      type: object
+      required: [inquiryId, customerId]
+      properties:
+        inquiryId:
+          type: integer
+        customerId:
+          type: integer
+        quotationNumber:
+          type: string
+        status:
+          type: string
+          enum: [draft, sent, approved, rejected]
+        totalAmount:
+          type: number
+        validUntil:
+          type: string
+        notes:
+          type: string
+
+    QuotationUpdate:
+      type: object
+      properties:
+        quotationNumber:
+          type: string
+        status:
+          type: string
+          enum: [draft, sent, approved, rejected]
+        totalAmount:
+          type: number
+        validUntil:
+          type: string
+        notes:
+          type: string
+
+    QuotationItemInput:
+      type: object
+      required: [description, quantity, unitPrice]
+      properties:
+        supplierId:
+          type: integer
+        description:
+          type: string
+          minLength: 1
+        quantity:
+          type: number
+        unit:
+          type: string
+        unitPrice:
+          type: number
+        notes:
+          type: string
+
+    QuotationItemUpdate:
+      type: object
+      properties:
+        supplierId:
+          type: integer
+        description:
+          type: string
+          minLength: 1
+        quantity:
+          type: number
+        unit:
+          type: string
+        unitPrice:
+          type: number
+        notes:
+          type: string
+
+    # ─── CUSTOMER PO ───────────────────────────────────────────────────────────
+    CustomerPo:
+      type: object
+      required: [id, customerId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        customerId:
+          type: integer
+        customerName:
+          type: ["string", "null"]
+        quotationId:
+          type: ["integer", "null"]
+        poNumber:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [received, processing, fulfilled, cancelled]
+        totalAmount:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    CustomerPoInput:
+      type: object
+      required: [customerId]
+      properties:
+        customerId:
+          type: integer
+        quotationId:
+          type: integer
+        poNumber:
+          type: string
+        status:
+          type: string
+          enum: [received, processing, fulfilled, cancelled]
+        totalAmount:
+          type: number
+        notes:
+          type: string
+
+    CustomerPoUpdate:
+      type: object
+      properties:
+        poNumber:
+          type: string
+        status:
+          type: string
+          enum: [received, processing, fulfilled, cancelled]
+        totalAmount:
+          type: number
+        notes:
+          type: string
+
+    # ─── SUPPLIER PO ───────────────────────────────────────────────────────────
+    SupplierPo:
+      type: object
+      required: [id, supplierId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        supplierId:
+          type: integer
+        supplierName:
+          type: ["string", "null"]
+        customerPoId:
+          type: ["integer", "null"]
+        poNumber:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, sent, confirmed, delivered, cancelled]
+        totalAmount:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    SupplierPoInput:
+      type: object
+      required: [supplierId]
+      properties:
+        supplierId:
+          type: integer
+        customerPoId:
+          type: integer
+        poNumber:
+          type: string
+        status:
+          type: string
+          enum: [draft, sent, confirmed, delivered, cancelled]
+        totalAmount:
+          type: number
+        notes:
+          type: string
+
+    SupplierPoUpdate:
+      type: object
+      properties:
+        poNumber:
+          type: string
+        status:
+          type: string
+          enum: [draft, sent, confirmed, delivered, cancelled]
+        totalAmount:
+          type: number
+        notes:
+          type: string
+
+    # ─── DASHBOARD ─────────────────────────────────────────────────────────────
+    DashboardSummary:
+      type: object
+      required: [totalCustomers, totalSuppliers, openInquiries, pendingQuotations, activeCustomerPos, activeSupplierPos, totalRevenue]
+      properties:
+        totalCustomers:
+          type: integer
+        totalSuppliers:
+          type: integer
+        openInquiries:
+          type: integer
+        pendingQuotations:
+          type: integer
+        activeCustomerPos:
+          type: integer
+        activeSupplierPos:
+          type: integer
+        totalRevenue:
+          type: number
+        inquiryStatusBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusCount"
+        quotationStatusBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/StatusCount"
+
+    StatusCount:
+      type: object
+      required: [status, count]
+      properties:
+        status:
+          type: string
+        count:
+          type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, type, title, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [inquiry, quotation, customer_po, supplier_po, customer, supplier]
+        title:
+          type: string
+        subtitle:
+          type: ["string", "null"]
+        status:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
