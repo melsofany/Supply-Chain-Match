@@ -1,11 +1,12 @@
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Truck } from "lucide-react";
+import { ArrowLeft, Truck, ExternalLink } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetCustomerPo,
   useUpdateCustomerPo,
   useCreateSupplierPo,
   useListSuppliers,
+  useListSupplierPos,
   getGetCustomerPoQueryKey,
   getListCustomerPosQueryKey,
   getListSupplierPosQueryKey,
@@ -33,6 +34,14 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-red-100 text-red-700",
 };
 
+const SUPPLIER_PO_STATUS_COLORS: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-700",
+  confirmed: "bg-blue-100 text-blue-700",
+  shipped: "bg-yellow-100 text-yellow-700",
+  delivered: "bg-green-100 text-green-800",
+  cancelled: "bg-red-100 text-red-700",
+};
+
 export default function CustomerPoDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -46,6 +55,11 @@ export default function CustomerPoDetail() {
   const { data: suppliers } = useListSuppliers({
     query: { queryKey: getListSuppliersQueryKey() },
   });
+  const { data: allSupplierPos } = useListSupplierPos({
+    query: { queryKey: getListSupplierPosQueryKey() },
+  });
+
+  const linkedSupplierPos = (allSupplierPos ?? []).filter((spo) => spo.customerPoId === numId);
 
   const updatePo = useUpdateCustomerPo();
   const createSupplierPo = useCreateSupplierPo();
@@ -60,7 +74,7 @@ export default function CustomerPoDetail() {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetCustomerPoQueryKey(numId) });
           qc.invalidateQueries({ queryKey: getListCustomerPosQueryKey() });
-          toast({ title: "Status updated" });
+          toast({ title: "تم تحديث الحالة" });
         },
       }
     );
@@ -68,7 +82,7 @@ export default function CustomerPoDetail() {
 
   function handleCreateSupplierPo() {
     if (!supplierPoForm.supplierId) {
-      toast({ title: "Supplier is required", variant: "destructive" });
+      toast({ title: "المورد مطلوب", variant: "destructive" });
       return;
     }
     createSupplierPo.mutate(
@@ -86,7 +100,7 @@ export default function CustomerPoDetail() {
         onSuccess: (newPo) => {
           qc.invalidateQueries({ queryKey: getListSupplierPosQueryKey() });
           setSupplierPoDialogOpen(false);
-          toast({ title: "Supplier PO created" });
+          toast({ title: "تم إنشاء أمر شراء المورد" });
           setLocation(`/supplier-pos/${newPo.id}`);
         },
       }
@@ -100,8 +114,8 @@ export default function CustomerPoDetail() {
   if (!po) {
     return (
       <div className="text-center py-16">
-        <p className="text-muted-foreground">Customer PO not found.</p>
-        <Button variant="link" onClick={() => setLocation("/customer-pos")}>Back to Customer POs</Button>
+        <p className="text-muted-foreground">لم يتم العثور على أمر الشراء.</p>
+        <Button variant="link" onClick={() => setLocation("/customer-pos")}>العودة إلى أوامر الشراء</Button>
       </div>
     );
   }
@@ -113,9 +127,9 @@ export default function CustomerPoDetail() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">{po.poNumber ?? `Customer PO #${po.id}`}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{po.poNumber ?? `أمر شراء العميل #${po.id}`}</h1>
           <p className="text-muted-foreground text-sm mt-0.5">
-            {po.customerName ?? `Customer #${po.customerId}`} • {new Date(po.createdAt).toLocaleDateString()}
+            {po.customerName ?? `عميل #${po.customerId}`} • {new Date(po.createdAt).toLocaleDateString("ar-EG")}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -124,40 +138,100 @@ export default function CustomerPoDetail() {
           </span>
           <Button size="sm" variant="outline" onClick={() => setSupplierPoDialogOpen(true)} data-testid="button-create-supplier-po">
             <Truck className="h-4 w-4 mr-1.5" />
-            Create Supplier PO
+            إنشاء أمر شراء مورد
           </Button>
         </div>
       </div>
 
       <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base">Details</CardTitle></CardHeader>
+        <CardHeader className="pb-3"><CardTitle className="text-base">التفاصيل</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label className="text-xs text-muted-foreground">Status</Label>
+              <Label className="text-xs text-muted-foreground">الحالة</Label>
               <Select value={po.status} onValueChange={handleStatusChange}>
                 <SelectTrigger className="mt-1" data-testid="select-customer-po-status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="received">Received</SelectItem>
-                  <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="fulfilled">Fulfilled</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="received">مستلم</SelectItem>
+                  <SelectItem value="processing">قيد المعالجة</SelectItem>
+                  <SelectItem value="fulfilled">مكتمل</SelectItem>
+                  <SelectItem value="cancelled">ملغي</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Total Amount</Label>
+              <Label className="text-xs text-muted-foreground">الإجمالي</Label>
               <p className="mt-1 font-semibold text-lg">
-                {po.totalAmount != null ? `$${po.totalAmount.toLocaleString()}` : "—"}
+                {po.totalAmount != null ? `${Number(po.totalAmount).toLocaleString()} ج.م` : "—"}
               </p>
             </div>
           </div>
           {po.notes && (
             <div>
-              <Label className="text-xs text-muted-foreground">Notes</Label>
+              <Label className="text-xs text-muted-foreground">ملاحظات</Label>
               <p className="mt-1 text-sm">{po.notes}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Linked Supplier POs */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Truck className="h-4 w-4 text-muted-foreground" />
+              أوامر الشراء للموردين
+            </CardTitle>
+            {linkedSupplierPos.length > 0 && (
+              <p className="text-xs text-muted-foreground mt-0.5">
+                تم إنشاؤها تلقائياً من عرض الأسعار
+              </p>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {linkedSupplierPos.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              لا توجد أوامر شراء للموردين بعد.
+              {po.quotationId
+                ? " لم تكن هناك بنود مرتبطة بموردين في عرض الأسعار."
+                : " استخدم زر «إنشاء أمر شراء مورد» لإضافة مورد يدوياً."}
+            </p>
+          ) : (
+            <div className="divide-y">
+              {linkedSupplierPos.map((spo) => (
+                <div key={spo.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm font-medium">
+                      {spo.supplierName ?? `مورد #${spo.supplierId}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {spo.poNumber ?? `SPO-${spo.id}`}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {spo.totalAmount != null && (
+                      <span className="text-sm font-semibold">
+                        {Number(spo.totalAmount).toLocaleString()} ج.م
+                      </span>
+                    )}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SUPPLIER_PO_STATUS_COLORS[spo.status] ?? ""}`}>
+                      {spo.status}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => setLocation(`/supplier-pos/${spo.id}`)}
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
@@ -165,12 +239,12 @@ export default function CustomerPoDetail() {
 
       <Dialog open={supplierPoDialogOpen} onOpenChange={setSupplierPoDialogOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Create Supplier PO</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>إنشاء أمر شراء مورد</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Supplier *</Label>
+              <Label>المورد *</Label>
               <Select value={supplierPoForm.supplierId} onValueChange={(v) => setSupplierPoForm({ ...supplierPoForm, supplierId: v })}>
-                <SelectTrigger><SelectValue placeholder="Select supplier..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="اختر المورد..." /></SelectTrigger>
                 <SelectContent>
                   {(suppliers ?? []).map((s) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
                 </SelectContent>
@@ -178,22 +252,22 @@ export default function CustomerPoDetail() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>PO Number</Label>
+                <Label>رقم الأمر</Label>
                 <Input value={supplierPoForm.poNumber} onChange={(e) => setSupplierPoForm({ ...supplierPoForm, poNumber: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label>Total Amount</Label>
+                <Label>الإجمالي</Label>
                 <Input type="number" value={supplierPoForm.totalAmount} onChange={(e) => setSupplierPoForm({ ...supplierPoForm, totalAmount: e.target.value })} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Notes</Label>
+              <Label>ملاحظات</Label>
               <Textarea rows={2} value={supplierPoForm.notes} onChange={(e) => setSupplierPoForm({ ...supplierPoForm, notes: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setSupplierPoDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateSupplierPo} disabled={createSupplierPo.isPending}>Create</Button>
+            <Button variant="outline" onClick={() => setSupplierPoDialogOpen(false)}>إلغاء</Button>
+            <Button onClick={handleCreateSupplierPo} disabled={createSupplierPo.isPending}>إنشاء</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

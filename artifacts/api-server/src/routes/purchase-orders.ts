@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, customerPosTable, supplierPosTable, customersTable, suppliersTable } from "@workspace/db";
+import { db, customerPosTable, supplierPosTable, customersTable, suppliersTable, quotationItemsTable } from "@workspace/db";
 import {
   CreateCustomerPoBody,
   GetCustomerPoParams,
@@ -93,6 +93,37 @@ router.post("/customer-pos", async (req, res): Promise<void> => {
   const ins: any = { ...parsed.data };
   if (ins.totalAmount != null) ins.totalAmount = String(ins.totalAmount);
   const [po] = await db.insert(customerPosTable).values(ins).returning();
+
+  // Auto-create Supplier POs from quotation items if quotationId is provided
+  if (parsed.data.quotationId) {
+    const items = await db
+      .select({
+        supplierId: quotationItemsTable.supplierId,
+        quantity: quotationItemsTable.quantity,
+        unitPrice: quotationItemsTable.unitPrice,
+      })
+      .from(quotationItemsTable)
+      .where(eq(quotationItemsTable.quotationId, parsed.data.quotationId));
+
+    // Group items by supplierId and sum their totals
+    const supplierTotals = new Map<number, number>();
+    for (const item of items) {
+      if (item.supplierId == null) continue;
+      const lineTotal = Number(item.quantity) * Number(item.unitPrice);
+      supplierTotals.set(item.supplierId, (supplierTotals.get(item.supplierId) ?? 0) + lineTotal);
+    }
+
+    // Create one Supplier PO per unique supplier
+    for (const [supplierId, totalAmount] of supplierTotals.entries()) {
+      await db.insert(supplierPosTable).values({
+        supplierId,
+        customerPoId: po.id,
+        status: "draft",
+        totalAmount: String(Math.round(totalAmount * 100) / 100),
+      });
+    }
+  }
+
   res.status(201).json({ ...po, customerName: null, totalAmount: parseAmount(po.totalAmount) });
 });
 

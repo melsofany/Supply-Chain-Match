@@ -252,7 +252,14 @@ export default function QuotationDetail() {
       {
         onSuccess: (newPo) => {
           qc.invalidateQueries({ queryKey: getListCustomerPosQueryKey() });
-          toast({ title: "Customer PO created" });
+          const itemsWithSupplier = quotation?.items.filter((i) => i.supplierId != null) ?? [];
+          const uniqueSuppliers = new Set(itemsWithSupplier.map((i) => i.supplierId)).size;
+          toast({
+            title: "تم إنشاء أمر شراء العميل",
+            description: uniqueSuppliers > 0
+              ? `تم إنشاء ${uniqueSuppliers} أمر شراء للمورد${uniqueSuppliers > 1 ? "ين" : ""} تلقائياً`
+              : "لا توجد بنود مرتبطة بموردين لإنشاء أوامر شراء تلقائياً",
+          });
           setLocation(`/customer-pos/${newPo.id}`);
         },
       }
