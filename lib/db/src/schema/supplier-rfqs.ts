@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, numeric, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -10,6 +10,17 @@ export const supplierRfqsTable = pgTable("supplier_rfqs", {
   status: text("status").notNull().default("pending"),
   quotedPrice: numeric("quoted_price", { precision: 15, scale: 2 }),
   notes: text("notes"),
+  // Email / portal tracking
+  token: text("token").unique(),
+  emailStatus: text("email_status").default("not_sent"),
+  emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
+  closeDate: text("close_date"),
+  linkOpened: boolean("link_opened").notNull().default(false),
+  openCount: integer("open_count").notNull().default(0),
+  firstOpenedAt: timestamp("first_opened_at", { withTimezone: true }),
+  lastOpenedAt: timestamp("last_opened_at", { withTimezone: true }),
+  offerSubmitted: boolean("offer_submitted").notNull().default(false),
+  offerSubmittedAt: timestamp("offer_submitted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

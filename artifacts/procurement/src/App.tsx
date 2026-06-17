@@ -25,10 +25,11 @@ import Invoices from "@/pages/invoices";
 import InvoiceDetail from "@/pages/invoice-detail";
 import Reports from "@/pages/reports";
 import UsersPage from "@/pages/users";
+import SupplierPortal from "@/pages/supplier-portal";
 
 const queryClient = new QueryClient();
 
-function Router() {
+function AuthenticatedApp() {
   const { user, loading } = useAuth();
 
   if (loading) {
@@ -76,14 +77,27 @@ function Router() {
   );
 }
 
+function Router() {
+  return (
+    <Switch>
+      {/* Public — no auth required */}
+      <Route path="/portal/:token" component={SupplierPortal} />
+      {/* Everything else requires auth */}
+      <Route>
+        <AuthProvider>
+          <AuthenticatedApp />
+        </AuthProvider>
+      </Route>
+    </Switch>
+  );
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <AuthProvider>
-            <Router />
-          </AuthProvider>
+          <Router />
         </WouterRouter>
         <Toaster />
       </TooltipProvider>

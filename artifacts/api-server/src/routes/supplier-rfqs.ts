@@ -12,6 +12,9 @@ import {
   itemPriceHistoryTable,
   customersTable,
 } from "@workspace/db";
+import { generateToken } from "../lib/token";
+import { sendRfqEmail } from "../lib/email";
+import { generateRfqPdf } from "../lib/rfqPdf";
 
 const router: IRouter = Router();
 
@@ -24,6 +27,15 @@ function enrichRfq(row: any) {
     ...row,
     quotedPrice: parseAmount(row.quotedPrice),
   };
+}
+
+function getBaseUrl(req: any): string {
+  return (
+    process.env.BASE_URL ??
+    (process.env.REPLIT_DOMAINS
+      ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+      : `http://localhost:${process.env.PORT ?? 8080}`)
+  );
 }
 
 router.get("/supplier-rfqs", async (req, res): Promise<void> => {
@@ -62,10 +74,21 @@ router.get("/supplier-rfqs/by-inquiry/:inquiryId", async (req, res): Promise<voi
       inquiryTitle: inquiriesTable.title,
       supplierId: supplierRfqsTable.supplierId,
       supplierName: suppliersTable.name,
+      supplierEmail: suppliersTable.email,
       rfqNumber: supplierRfqsTable.rfqNumber,
       status: supplierRfqsTable.status,
       quotedPrice: supplierRfqsTable.quotedPrice,
       notes: supplierRfqsTable.notes,
+      token: supplierRfqsTable.token,
+      emailStatus: supplierRfqsTable.emailStatus,
+      emailSentAt: supplierRfqsTable.emailSentAt,
+      closeDate: supplierRfqsTable.closeDate,
+      linkOpened: supplierRfqsTable.linkOpened,
+      openCount: supplierRfqsTable.openCount,
+      firstOpenedAt: supplierRfqsTable.firstOpenedAt,
+      lastOpenedAt: supplierRfqsTable.lastOpenedAt,
+      offerSubmitted: supplierRfqsTable.offerSubmitted,
+      offerSubmittedAt: supplierRfqsTable.offerSubmittedAt,
       createdAt: supplierRfqsTable.createdAt,
     })
     .from(supplierRfqsTable)
@@ -307,6 +330,131 @@ router.post("/inquiries/:id/quotation-from-rfqs", async (req, res): Promise<void
   });
 });
 
+// POST /api/supplier-rfqs/:id/send-email — generate token + send email to supplier
+router.post("/supplier-rfqs/:id/send-email", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { closeDate } = req.body as { closeDate?: string };
+
+  const [row] = await db
+    .select({
+      rfq: supplierRfqsTable,
+      supplierName: suppliersTable.name,
+      supplierEmail: suppliersTable.email,
+      inquiryTitle: inquiriesTable.title,
+    })
+    .from(supplierRfqsTable)
+    .leftJoin(suppliersTable, eq(supplierRfqsTable.supplierId, suppliersTable.id))
+    .leftJoin(inquiriesTable, eq(supplierRfqsTable.inquiryId, inquiriesTable.id))
+    .where(eq(supplierRfqsTable.id, id));
+
+  if (!row) { res.status(404).json({ error: "RFQ not found" }); return; }
+
+  if (!row.supplierEmail) {
+    res.status(400).json({
+      status: "no_email",
+      reason: `المورد "${row.supplierName}" ليس لديه بريد إلكتروني مسجّل`,
+    });
+    return;
+  }
+
+  // Generate token if not exists
+  let token = row.rfq.token;
+  if (!token) {
+    token = generateToken();
+    await db.update(supplierRfqsTable).set({ token }).where(eq(supplierRfqsTable.id, id));
+  }
+
+  // Build portal URL — uses app's frontend path
+  const baseUrl = getBaseUrl(req);
+  const appBasePath = process.env.BASE_PATH?.replace(/\/$/, "") ?? "";
+  const portalUrl = `${baseUrl}${appBasePath}/portal/${token}`;
+
+  // Get inquiry items
+  const items = await db
+    .select({
+      description: inquiryItemsTable.description,
+      quantity: inquiryItemsTable.quantity,
+      unit: inquiryItemsTable.unit,
+      notes: inquiryItemsTable.notes,
+    })
+    .from(inquiryItemsTable)
+    .where(eq(inquiryItemsTable.inquiryId, row.rfq.inquiryId));
+
+  try {
+    await sendRfqEmail({
+      to: row.supplierEmail,
+      toName: row.supplierName ?? "المورد",
+      rfqNo: row.rfq.rfqNumber ?? String(id),
+      inquiryTitle: row.inquiryTitle ?? "طلب تسعير",
+      items: items.map((i) => ({
+        description: i.description,
+        quantity: i.quantity != null ? String(i.quantity) : null,
+        unit: i.unit,
+        notes: i.notes,
+      })),
+      portalUrl,
+      closeDate: closeDate || row.rfq.closeDate || "قريباً",
+      senderName: "فريق المشتريات",
+    });
+
+    await db.update(supplierRfqsTable).set({
+      status: "sent",
+      emailStatus: "sent",
+      emailSentAt: new Date(),
+      closeDate: closeDate ?? row.rfq.closeDate,
+    }).where(eq(supplierRfqsTable.id, id));
+
+    res.json({
+      rfqId: id,
+      supplierName: row.supplierName,
+      status: "sent",
+      portalUrl,
+      reason: null,
+    });
+  } catch (err: any) {
+    await db.update(supplierRfqsTable).set({
+      emailStatus: "failed",
+    }).where(eq(supplierRfqsTable.id, id));
+
+    res.status(500).json({
+      rfqId: id,
+      supplierName: row.supplierName,
+      status: "failed",
+      reason: err.message ?? "Email send failed",
+    });
+  }
+});
+
+// POST /api/supplier-rfqs/:id/generate-link — generate portal token without sending email
+router.post("/supplier-rfqs/:id/generate-link", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { closeDate } = req.body as { closeDate?: string };
+
+  const [rfq] = await db.select().from(supplierRfqsTable).where(eq(supplierRfqsTable.id, id));
+  if (!rfq) { res.status(404).json({ error: "RFQ not found" }); return; }
+
+  let token = rfq.token;
+  if (!token) {
+    token = generateToken();
+  }
+
+  await db.update(supplierRfqsTable).set({
+    token,
+    status: rfq.status === "pending" ? "sent" : rfq.status,
+    closeDate: closeDate ?? rfq.closeDate,
+  }).where(eq(supplierRfqsTable.id, id));
+
+  const baseUrl = getBaseUrl(req);
+  const appBasePath = process.env.BASE_PATH?.replace(/\/$/, "") ?? "";
+  const portalUrl = `${baseUrl}${appBasePath}/portal/${token}`;
+
+  res.json({ token, portalUrl });
+});
+
 router.post("/supplier-rfqs", async (req, res): Promise<void> => {
   const { inquiryId, supplierId, rfqNumber, notes } = req.body;
   if (!inquiryId || !supplierId) {
@@ -392,6 +540,64 @@ router.patch("/supplier-rfqs/:id", async (req, res): Promise<void> => {
   const [inquiry] = await db.select({ title: inquiriesTable.title }).from(inquiriesTable).where(eq(inquiriesTable.id, rfq.inquiryId));
 
   res.json(enrichRfq({ ...rfq, supplierName: supplier?.name ?? null, inquiryTitle: inquiry?.title ?? null }));
+});
+
+// ── GET /api/supplier-rfqs/:id/pdf — download RFQ as PDF ──────────────────
+router.get("/supplier-rfqs/:id/pdf", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [row] = await db
+    .select({
+      id: supplierRfqsTable.id,
+      rfqNumber: supplierRfqsTable.rfqNumber,
+      token: supplierRfqsTable.token,
+      closeDate: supplierRfqsTable.closeDate,
+      supplierName: suppliersTable.name,
+      inquiryTitle: inquiriesTable.title,
+    })
+    .from(supplierRfqsTable)
+    .leftJoin(suppliersTable, eq(supplierRfqsTable.supplierId, suppliersTable.id))
+    .leftJoin(inquiriesTable, eq(supplierRfqsTable.inquiryId, inquiriesTable.id))
+    .where(eq(supplierRfqsTable.id, id));
+
+  if (!row) { res.status(404).json({ error: "RFQ not found" }); return; }
+
+  const rfqItems = await db
+    .select({
+      description: supplierRfqItemsTable.description,
+      quantity: supplierRfqItemsTable.quantity,
+      unit: supplierRfqItemsTable.unit,
+      notes: supplierRfqItemsTable.notes,
+    })
+    .from(supplierRfqItemsTable)
+    .where(eq(supplierRfqItemsTable.rfqId, id));
+
+  // Build portal URL if token exists
+  const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0];
+  const baseUrl = replitDomain ? `https://${replitDomain}` : `http://localhost:${process.env.PORT || 8080}`;
+  const appBase = process.env.BASE_PATH ?? "";
+  const portalUrl = row.token ? `${baseUrl}${appBase}/portal/${row.token}` : undefined;
+
+  const pdfBuffer = await generateRfqPdf({
+    rfqNumber: row.rfqNumber ?? `RFQ-${id}`,
+    inquiryTitle: row.inquiryTitle ?? "—",
+    closeDate: row.closeDate,
+    supplierName: row.supplierName ?? "—",
+    items: rfqItems.map((item) => ({
+      description: item.description,
+      quantity: item.quantity,
+      unit: item.unit,
+      notes: item.notes,
+    })),
+    portalUrl,
+    companyName: process.env.COMPANY_NAME,
+  });
+
+  const filename = `RFQ-${row.rfqNumber ?? id}.pdf`;
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.send(pdfBuffer);
 });
 
 router.delete("/supplier-rfqs/:id", async (req, res): Promise<void> => {

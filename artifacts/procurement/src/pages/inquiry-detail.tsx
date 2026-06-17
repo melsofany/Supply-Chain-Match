@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Plus, Pencil, Trash2, FileText, Send, CheckCircle, Clock, XCircle, Table2, Star } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, FileText, Send, CheckCircle, Clock, XCircle, Table2, Star, Mail, Eye, Link2, Copy, Download } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetInquiry,
@@ -63,49 +63,147 @@ function RfqCard({
   onEdit,
   onDelete,
   onEnterPrices,
+  onSendEmail,
+  onGenerateLink,
+  isSendingEmail,
 }: {
   rfq: SupplierRfq;
   onEdit: (rfq: SupplierRfq) => void;
   onDelete: (id: number) => void;
   onEnterPrices: (rfq: SupplierRfq) => void;
+  onSendEmail: (rfq: SupplierRfq) => void;
+  onGenerateLink: (rfq: SupplierRfq) => void;
+  isSendingEmail: boolean;
 }) {
   const cfg = RFQ_STATUS_CONFIG[rfq.status] ?? RFQ_STATUS_CONFIG.pending;
+  const API_BASE = import.meta.env.VITE_API_URL?.replace(/\/$/, "") ?? "";
+
+  async function downloadPdf() {
+    const resp = await fetch(`${API_BASE}/api/supplier-rfqs/${rfq.id}/pdf`);
+    if (!resp.ok) { alert("فشل توليد PDF"); return; }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `RFQ-${rfq.rfqNumber ?? rfq.id}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const emailBadge = rfq.emailStatus === "sent"
+    ? <span className="text-[10px] text-green-600 flex items-center gap-0.5"><Mail className="h-3 w-3" />أُرسل بالإيميل</span>
+    : rfq.emailStatus === "failed"
+    ? <span className="text-[10px] text-red-500 flex items-center gap-0.5"><Mail className="h-3 w-3" />فشل الإرسال</span>
+    : null;
+
+  const linkBadge = rfq.token
+    ? rfq.linkOpened
+      ? <span className="text-[10px] text-blue-600 flex items-center gap-0.5"><Eye className="h-3 w-3" />فُتح {rfq.openCount > 1 ? `(${rfq.openCount})` : ""}</span>
+      : <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Eye className="h-3 w-3" />لم يُفتح</span>
+    : null;
+
+  const offerBadge = rfq.offerSubmitted
+    ? <span className="text-[10px] text-emerald-600 flex items-center gap-0.5"><CheckCircle className="h-3 w-3" />عرض مُرسَل</span>
+    : null;
+
   return (
-    <div className="flex items-center justify-between py-3 border-b last:border-b-0" data-testid={`row-rfq-${rfq.id}`}>
-      <div className="flex items-center gap-2 min-w-0">
-        <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cfg.color}`}>
-          {cfg.icon}
-          {cfg.label}
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-medium truncate">{rfq.supplierName ?? `مورد #${rfq.supplierId}`}</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {rfq.rfqNumber && <span>{rfq.rfqNumber} • </span>}
-            {rfq.quotedPrice != null
-              ? <span className="font-semibold text-green-700">سعر إجمالي: {Number(rfq.quotedPrice).toLocaleString()} ج.م</span>
-              : <span className="text-muted-foreground">لم يُحدد سعر إجمالي</span>
-            }
-            {rfq.notes && <span className="ml-2 text-muted-foreground"> • {rfq.notes}</span>}
-          </p>
+    <div className="py-3 border-b last:border-b-0" data-testid={`row-rfq-${rfq.id}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${cfg.color}`}>
+            {cfg.icon}
+            {cfg.label}
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">{rfq.supplierName ?? `مورد #${rfq.supplierId}`}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {rfq.rfqNumber && <span>{rfq.rfqNumber} • </span>}
+              {rfq.quotedPrice != null
+                ? <span className="font-semibold text-green-700">سعر إجمالي: {Number(rfq.quotedPrice).toLocaleString()} ج.م</span>
+                : <span className="text-muted-foreground">لم يُحدد سعر إجمالي</span>
+              }
+              {rfq.closeDate && <span className="mr-2 text-amber-600">• آخر موعد: {rfq.closeDate}</span>}
+            </p>
+            {/* Tracking badges */}
+            {(emailBadge || linkBadge || offerBadge) && (
+              <div className="flex items-center gap-2 mt-1">
+                {emailBadge}
+                {linkBadge}
+                {offerBadge}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-      <div className="flex items-center gap-1 flex-shrink-0">
-        {(rfq.status === "sent" || rfq.status === "received") && (
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {rfq.status !== "cancelled" && (
+            <>
+              {rfq.supplierEmail && rfq.emailStatus !== "sent" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => onSendEmail(rfq)}
+                  disabled={isSendingEmail}
+                  title="إرسال رابط التسعير بالإيميل"
+                >
+                  <Mail className="h-3 w-3" />
+                  إيميل
+                </Button>
+              )}
+              {rfq.emailStatus === "sent" && rfq.token && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1 text-muted-foreground"
+                  onClick={() => {
+                    const base = window.location.origin + (import.meta.env.BASE_URL || "").replace(/\/$/, "");
+                    const url = `${base}/portal/${rfq.token}`;
+                    navigator.clipboard.writeText(url);
+                  }}
+                  title="نسخ رابط البوابة"
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              )}
+              {!rfq.token && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1 text-muted-foreground"
+                  onClick={() => onGenerateLink(rfq)}
+                  title="توليد رابط بوابة المورد"
+                >
+                  <Link2 className="h-3 w-3" />
+                </Button>
+              )}
+            </>
+          )}
+          {(rfq.status === "sent" || rfq.status === "received") && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => onEnterPrices(rfq)}
+            >
+              أسعار البنود
+            </Button>
+          )}
           <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs"
-            onClick={() => onEnterPrices(rfq)}
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-blue-600"
+            title="تحميل PDF"
+            onClick={downloadPdf}
           >
-            أسعار البنود
+            <Download className="h-3.5 w-3.5" />
           </Button>
-        )}
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(rfq)}>
-          <Pencil className="h-3.5 w-3.5" />
-        </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(rfq.id)}>
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(rfq)}>
+            <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(rfq.id)}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -155,6 +253,11 @@ export default function InquiryDetail() {
   // Quotation-from-RFQ dialog
   const [quotationDialogOpen, setQuotationDialogOpen] = useState(false);
   const [selectedPrices, setSelectedPrices] = useState<Record<number, { rfqId: number; supplierId: number | null; unitPrice: number } | null>>({}); // inquiryItemId -> selection
+
+  // Email send dialog
+  const [sendEmailDialogRfq, setSendEmailDialogRfq] = useState<SupplierRfq | null>(null);
+  const [emailCloseDate, setEmailCloseDate] = useState("");
+  const [sendingEmailId, setSendingEmailId] = useState<number | null>(null);
 
   const { isUpdating: isUpdatingRfq, update: updateRfqFn } = useUpdateSupplierRfq(
     editingRfq?.id ?? 0,
@@ -246,6 +349,54 @@ export default function InquiryDetail() {
         },
       }
     );
+  }
+
+  // ── Email sending ──────────────────────────────────────────────────────────
+  function openSendEmail(rfq: SupplierRfq) {
+    setSendEmailDialogRfq(rfq);
+    setEmailCloseDate("");
+  }
+
+  async function handleSendEmail() {
+    if (!sendEmailDialogRfq) return;
+    setSendingEmailId(sendEmailDialogRfq.id);
+    try {
+      const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+      const r = await fetch(`${BASE}/api/supplier-rfqs/${sendEmailDialogRfq.id}/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ closeDate: emailCloseDate || undefined }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.reason || j.error || `خطأ ${r.status}`);
+      toast({ title: `تم إرسال الإيميل لـ ${j.supplierName}` });
+      setSendEmailDialogRfq(null);
+      refetchRfqs();
+    } catch (e: any) {
+      toast({ title: e.message, variant: "destructive" });
+    } finally {
+      setSendingEmailId(null);
+    }
+  }
+
+  async function handleGenerateLink(rfq: SupplierRfq) {
+    try {
+      const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+      const r = await fetch(`${BASE}/api/supplier-rfqs/${rfq.id}/generate-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "فشل توليد الرابط");
+      await navigator.clipboard.writeText(j.portalUrl);
+      toast({ title: "تم توليد الرابط ونسخه في الحافظة" });
+      refetchRfqs();
+    } catch (e: any) {
+      toast({ title: e.message, variant: "destructive" });
+    }
   }
 
   // ── RFQ management ────────────────────────────────────────────────────────
@@ -506,6 +657,9 @@ export default function InquiryDetail() {
                   onEdit={openEditRfq}
                   onDelete={(id) => setRfqDeleteId(id)}
                   onEnterPrices={openEnterPrices}
+                  onSendEmail={openSendEmail}
+                  onGenerateLink={handleGenerateLink}
+                  isSendingEmail={sendingEmailId === rfq.id}
                 />
               ))}
             </div>
@@ -906,6 +1060,48 @@ export default function InquiryDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* إرسال بالإيميل */}
+      <Dialog open={sendEmailDialogRfq != null} onOpenChange={(o) => !o && setSendEmailDialogRfq(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-blue-600" />
+              إرسال طلب التسعير بالإيميل
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+              <p className="font-medium text-blue-800">{sendEmailDialogRfq?.supplierName}</p>
+              <p className="text-blue-600 mt-0.5">{sendEmailDialogRfq?.supplierEmail}</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>آخر موعد لتقديم العرض (اختياري)</Label>
+              <Input
+                type="date"
+                value={emailCloseDate}
+                onChange={(e) => setEmailCloseDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+              />
+              <p className="text-xs text-muted-foreground">سيظهر هذا التاريخ في الإيميل وفي بوابة المورد.</p>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
+              <strong>تنبيه:</strong> يتطلب الإرسال ضبط متغيرات SMTP_USER و SMTP_PASS في إعدادات البيئة.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSendEmailDialogRfq(null)}>إلغاء</Button>
+            <Button
+              onClick={handleSendEmail}
+              disabled={sendingEmailId != null}
+              className="gap-1.5"
+            >
+              <Mail className="h-4 w-4" />
+              {sendingEmailId != null ? "جارٍ الإرسال..." : "إرسال الإيميل"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

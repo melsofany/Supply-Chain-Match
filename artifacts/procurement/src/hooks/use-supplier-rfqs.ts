@@ -7,10 +7,22 @@ export interface SupplierRfq {
   inquiryTitle: string | null;
   supplierId: number;
   supplierName: string | null;
+  supplierEmail: string | null;
   rfqNumber: string | null;
   status: "pending" | "sent" | "received" | "cancelled";
   quotedPrice: number | null;
   notes: string | null;
+  // Email / portal tracking
+  token: string | null;
+  emailStatus: string | null;
+  emailSentAt: string | null;
+  closeDate: string | null;
+  linkOpened: boolean;
+  openCount: number;
+  firstOpenedAt: string | null;
+  lastOpenedAt: string | null;
+  offerSubmitted: boolean;
+  offerSubmittedAt: string | null;
   createdAt: string;
 }
 
@@ -147,7 +159,7 @@ export function useUpdateSupplierRfq(id: number, refetch: () => void) {
   const [isUpdating, setIsUpdating] = useState(false);
 
   async function update(
-    body: Partial<{ status: string; quotedPrice: number; rfqNumber: string; notes: string }>,
+    body: Partial<{ status: string; quotedPrice: number; rfqNumber: string; notes: string; closeDate: string }>,
     callbacks?: { onSuccess?: () => void }
   ) {
     setIsUpdating(true);
@@ -233,4 +245,35 @@ export function useCreateQuotationFromRfqs(inquiryId: number) {
   }
 
   return { create, isCreating };
+}
+
+export interface SendEmailResult {
+  rfqId: number;
+  supplierName: string;
+  status: "sent" | "skipped" | "failed" | "no_email";
+  reason: string | null;
+}
+
+export function useSendRfqEmail(rfqId: number, onSuccess: () => void) {
+  const [isSending, setIsSending] = useState(false);
+
+  async function send(closeDate?: string) {
+    setIsSending(true);
+    try {
+      const result = await customFetch<SendEmailResult>(
+        `/api/supplier-rfqs/${rfqId}/send-email`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ closeDate }),
+        }
+      );
+      onSuccess();
+      return result;
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  return { send, isSending };
 }
