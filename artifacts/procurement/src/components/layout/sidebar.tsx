@@ -92,11 +92,9 @@ export function Sidebar() {
   return (
     <>
       <div className="hidden md:flex flex-col w-64 bg-sidebar border-r border-sidebar-border min-h-screen p-4">
-        <div className="flex items-center gap-2 px-2 mb-6 mt-2">
-          <div className="h-8 w-8 rounded bg-accent text-accent-foreground flex items-center justify-center font-bold text-lg">
-            TR
-          </div>
-          <span className="font-bold text-lg text-sidebar-foreground tracking-tight">TradeCore</span>
+        <div className="flex flex-col items-center px-2 mb-6 mt-2 gap-1">
+          <img src="/logo.jpeg" alt="AL-KHEDIVI" className="h-16 w-auto object-contain" />
+          <span className="text-[10px] text-sidebar-foreground/50 text-center leading-tight">General Supplies & Contracting</span>
         </div>
         <NavLinks />
         <UserFooter />
@@ -110,17 +108,15 @@ export function Sidebar() {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-64 bg-sidebar border-sidebar-border p-4 text-sidebar-foreground flex flex-col">
-            <div className="flex items-center gap-2 px-2 mb-6 mt-2">
-              <div className="h-8 w-8 rounded bg-accent text-accent-foreground flex items-center justify-center font-bold text-lg">
-                TR
-              </div>
-              <span className="font-bold text-lg text-sidebar-foreground tracking-tight">TradeCore</span>
+            <div className="flex flex-col items-center px-2 mb-6 mt-2 gap-1">
+              <img src="/logo.jpeg" alt="AL-KHEDIVI" className="h-14 w-auto object-contain" />
+              <span className="text-[10px] text-sidebar-foreground/50 text-center leading-tight">General Supplies & Contracting</span>
             </div>
             <NavLinks />
             <UserFooter />
           </SheetContent>
         </Sheet>
-        <span className="font-bold text-lg tracking-tight">TradeCore</span>
+        <img src="/logo.jpeg" alt="AL-KHEDIVI" className="h-8 w-auto object-contain" />
         <Button variant="ghost" size="icon" className="text-sidebar-foreground" onClick={logout}>
           <LogOut className="h-4 w-4" />
         </Button>
