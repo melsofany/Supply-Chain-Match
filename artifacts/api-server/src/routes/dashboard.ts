@@ -73,22 +73,22 @@ router.get("/dashboard/recent-activity", async (req, res): Promise<void> => {
     db
       .select({ id: inquiriesTable.id, title: inquiriesTable.title, status: inquiriesTable.status, createdAt: inquiriesTable.createdAt })
       .from(inquiriesTable)
-      .orderBy(inquiriesTable.createdAt)
+      .orderBy(sql`${inquiriesTable.createdAt} DESC`)
       .limit(5),
     db
       .select({ id: quotationsTable.id, quotationNumber: quotationsTable.quotationNumber, status: quotationsTable.status, createdAt: quotationsTable.createdAt })
       .from(quotationsTable)
-      .orderBy(quotationsTable.createdAt)
+      .orderBy(sql`${quotationsTable.createdAt} DESC`)
       .limit(5),
     db
       .select({ id: customerPosTable.id, poNumber: customerPosTable.poNumber, status: customerPosTable.status, createdAt: customerPosTable.createdAt })
       .from(customerPosTable)
-      .orderBy(customerPosTable.createdAt)
+      .orderBy(sql`${customerPosTable.createdAt} DESC`)
       .limit(5),
     db
       .select({ id: supplierPosTable.id, poNumber: supplierPosTable.poNumber, status: supplierPosTable.status, createdAt: supplierPosTable.createdAt })
       .from(supplierPosTable)
-      .orderBy(supplierPosTable.createdAt)
+      .orderBy(sql`${supplierPosTable.createdAt} DESC`)
       .limit(5),
   ]);
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Plus, Pencil, Trash2, CheckCircle, XCircle, AlertTriangle, TrendingDown, History, Printer } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Trash2, CheckCircle, XCircle, AlertTriangle, TrendingDown, History, Printer, FileQuestion } from "lucide-react";
 import { PrintHeader } from "@/components/print-header";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -162,7 +162,7 @@ export default function QuotationDetail() {
 
   function handleItemSubmit() {
     if (!itemForm.description.trim() || !itemForm.quantity || !itemForm.unitPrice) {
-      toast({ title: "Description, quantity, and price are required", variant: "destructive" });
+      toast({ title: "الوصف والكمية والسعر حقول مطلوبة", variant: "destructive" });
       return;
     }
     const data = {
@@ -181,7 +181,7 @@ export default function QuotationDetail() {
           onSuccess: () => {
             qc.invalidateQueries({ queryKey: getGetQuotationQueryKey(numId) });
             setItemDialogOpen(false);
-            toast({ title: "Item updated" });
+            toast({ title: "تم تحديث البند" });
           },
         }
       );
@@ -192,7 +192,7 @@ export default function QuotationDetail() {
           onSuccess: () => {
             qc.invalidateQueries({ queryKey: getGetQuotationQueryKey(numId) });
             setItemDialogOpen(false);
-            toast({ title: "Item added — price logged to history" });
+            toast({ title: "تمت إضافة البند — تم تسجيل السعر في السجل" });
           },
         }
       );
@@ -207,7 +207,7 @@ export default function QuotationDetail() {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetQuotationQueryKey(numId) });
           setDeleteItemId(null);
-          toast({ title: "Item deleted" });
+          toast({ title: "تم حذف البند" });
         },
       }
     );
@@ -220,7 +220,7 @@ export default function QuotationDetail() {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetQuotationQueryKey(numId) });
           qc.invalidateQueries({ queryKey: getListQuotationsQueryKey() });
-          toast({ title: "Quotation approved — prices marked as successful in history" });
+          toast({ title: "تمت الموافقة على عرض السعر — تم تحديث سجل الأسعار بنجاح" });
         },
       }
     );
@@ -233,7 +233,7 @@ export default function QuotationDetail() {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetQuotationQueryKey(numId) });
           qc.invalidateQueries({ queryKey: getListQuotationsQueryKey() });
-          toast({ title: "Quotation rejected — prices marked as failed in history" });
+          toast({ title: "تم رفض عرض السعر — تم تحديث سجل الأسعار بالفشل" });
         },
       }
     );
@@ -247,7 +247,7 @@ export default function QuotationDetail() {
           customerId: quotation.customerId,
           quotationId: numId,
           status: "received",
-          totalAmount: quotation.totalAmount ?? undefined,
+          totalAmount: totalAmount > 0 ? totalAmount : undefined,
         },
       },
       {
@@ -276,8 +276,8 @@ export default function QuotationDetail() {
   if (!quotation) {
     return (
       <div className="text-center py-16">
-        <p className="text-muted-foreground">Quotation not found.</p>
-        <Button variant="link" onClick={() => setLocation("/quotations")}>Back to Quotations</Button>
+        <p className="text-muted-foreground">لم يتم العثور على عرض السعر.</p>
+        <Button variant="link" onClick={() => setLocation("/quotations")}>العودة إلى عروض الأسعار</Button>
       </div>
     );
   }
@@ -291,16 +291,29 @@ export default function QuotationDetail() {
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">
-            {quotation.quotationNumber ?? `Quotation #${quotation.id}`}
+            {quotation.quotationNumber ?? `عرض سعر #${quotation.id}`}
           </h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {quotation.customerName ?? `Customer #${quotation.customerId}`} •{" "}
-            {new Date(quotation.createdAt).toLocaleDateString()}
+          <p className="text-muted-foreground text-sm mt-0.5 flex items-center gap-2">
+            <span>{quotation.customerName ?? `عميل #${quotation.customerId}`}</span>
+            <span>•</span>
+            <span>{new Date(quotation.createdAt).toLocaleDateString("ar-EG")}</span>
+            {quotation.inquiryId && (
+              <>
+                <span>•</span>
+                <button
+                  className="flex items-center gap-1 text-blue-600 hover:underline text-xs"
+                  onClick={() => setLocation(`/inquiries/${quotation.inquiryId}`)}
+                >
+                  <FileQuestion className="h-3.5 w-3.5" />
+                  استفسار #{quotation.inquiryId}
+                </button>
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${STATUS_COLORS[quotation.status] ?? ""}`}>
-            {quotation.status}
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[quotation.status] ?? ""}`}>
+            {quotation.status === "draft" ? "مسودة" : quotation.status === "sent" ? "مرسل" : quotation.status === "approved" ? "معتمد" : quotation.status === "rejected" ? "مرفوض" : quotation.status}
           </span>
           <Button size="sm" variant="outline" onClick={() => window.print()}>
             <Printer className="h-4 w-4 mr-1.5" />
@@ -329,22 +342,22 @@ export default function QuotationDetail() {
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-base">Items & Pricing</CardTitle>
+            <CardTitle className="text-base">البنود والتسعير</CardTitle>
             {totalAmount > 0 && (
               <p className="text-sm text-muted-foreground mt-0.5">
-                Total: <span className="font-semibold text-foreground">${totalAmount.toLocaleString()}</span>
+                الإجمالي: <span className="font-semibold text-foreground">{totalAmount.toLocaleString()} ج.م</span>
               </p>
             )}
           </div>
           <Button size="sm" onClick={openAddItem} data-testid="button-add-quotation-item">
             <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Add Item
+            إضافة بند
           </Button>
         </CardHeader>
         <CardContent>
           {quotation.items.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-6">
-              No items yet. Add items with pricing from your suppliers.
+              لا توجد بنود بعد. أضف بنوداً بأسعار من مورديك.
             </p>
           ) : (
             <div className="divide-y">
@@ -353,12 +366,12 @@ export default function QuotationDetail() {
                   <div>
                     <p className="text-sm font-medium">{item.description}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {item.quantity} {item.unit ?? "units"} × ${Number(item.unitPrice).toLocaleString()}
-                      {item.supplierName && ` • Supplier: ${item.supplierName}`}
+                      {item.quantity} {item.unit ?? "وحدة"} × {Number(item.unitPrice).toLocaleString()} ج.م
+                      {item.supplierName && ` • المورد: ${item.supplierName}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold">${(item.totalPrice ?? 0).toLocaleString()}</span>
+                    <span className="text-sm font-semibold">{(item.totalPrice ?? 0).toLocaleString()} ج.م</span>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditItem(item)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
@@ -377,15 +390,15 @@ export default function QuotationDetail() {
       <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingItemId ? "Edit Item" : "Add Item"}</DialogTitle>
+            <DialogTitle>{editingItemId ? "تعديل البند" : "إضافة بند"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Description *</Label>
+              <Label>الوصف *</Label>
               <Input
                 value={itemForm.description}
                 onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
-                placeholder="e.g. مضخة مياه 10HP..."
+                placeholder="مثال: مضخة مياه 10HP..."
                 data-testid="input-item-description"
               />
             </div>
@@ -400,7 +413,7 @@ export default function QuotationDetail() {
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1.5">
-                <Label>Quantity *</Label>
+                <Label>الكمية *</Label>
                 <Input
                   type="number"
                   value={itemForm.quantity}
@@ -408,7 +421,7 @@ export default function QuotationDetail() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Unit Price *</Label>
+                <Label>سعر الوحدة *</Label>
                 <Input
                   type="number"
                   value={itemForm.unitPrice}
@@ -416,26 +429,26 @@ export default function QuotationDetail() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Unit</Label>
+                <Label>الوحدة</Label>
                 <Input
                   value={itemForm.unit}
                   onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })}
-                  placeholder="pcs, kg..."
+                  placeholder="قطعة، كجم..."
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <Label>Supplier</Label>
+              <Label>المورد</Label>
               <Select
                 value={itemForm.supplierId}
                 onValueChange={(v) => setItemForm({ ...itemForm, supplierId: v === "none" ? "" : v })}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select supplier..." />
+                  <SelectValue placeholder="اختر المورد..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No supplier</SelectItem>
+                  <SelectItem value="none">بدون مورد</SelectItem>
                   {(suppliers ?? []).map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
                   ))}
@@ -444,7 +457,7 @@ export default function QuotationDetail() {
             </div>
 
             <div className="space-y-1.5">
-              <Label>Notes</Label>
+              <Label>ملاحظات</Label>
               <Textarea
                 rows={2}
                 value={itemForm.notes}
@@ -453,9 +466,9 @@ export default function QuotationDetail() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setItemDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setItemDialogOpen(false)}>إلغاء</Button>
             <Button onClick={handleItemSubmit} disabled={addItem.isPending || updateItem.isPending}>
-              {editingItemId ? "Update" : "Add"}
+              {editingItemId ? "تحديث" : "إضافة"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -464,12 +477,12 @@ export default function QuotationDetail() {
       <AlertDialog open={deleteItemId != null} onOpenChange={(o) => !o && setDeleteItemId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Item?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle>حذف البند؟</AlertDialogTitle>
+            <AlertDialogDescription>لا يمكن التراجع عن هذا الإجراء.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteItem}>Delete</AlertDialogAction>
+            <AlertDialogCancel>إلغاء</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteItem}>حذف</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

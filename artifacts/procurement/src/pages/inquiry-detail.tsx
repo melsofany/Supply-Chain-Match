@@ -186,7 +186,17 @@ export default function InquiryDetail() {
     if (!inquiry) return;
     createQuotation.mutate(
       { data: { inquiryId: numId, customerId: inquiry.customerId, status: "draft" } },
-      { onSuccess: (newQ) => { qc.invalidateQueries({ queryKey: getListQuotationsQueryKey() }); toast({ title: "تم إنشاء عرض السعر" }); setLocation(`/quotations/${newQ.id}`); } }
+      {
+        onSuccess: (newQ) => {
+          qc.invalidateQueries({ queryKey: getListQuotationsQueryKey() });
+          updateInquiry.mutate(
+            { id: numId, data: { status: "quoted" as any } },
+            { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) }); qc.invalidateQueries({ queryKey: getListInquiriesQueryKey() }); } }
+          );
+          toast({ title: "تم إنشاء عرض السعر — تم تحديث حالة الاستفسار إلى «تم تقديم العرض»" });
+          setLocation(`/quotations/${newQ.id}`);
+        },
+      }
     );
   }
 
