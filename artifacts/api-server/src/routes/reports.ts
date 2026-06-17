@@ -7,9 +7,12 @@ import {
   customersTable,
   suppliersTable,
   quotationsTable,
+  quotationItemsTable,
   deliveryNotesTable,
   invoicesTable,
   inquiriesTable,
+  inquiryItemsTable,
+  supplierRfqsTable,
 } from "@workspace/db";
 
 const router: IRouter = Router();
@@ -401,6 +404,182 @@ router.get("/reports/summary", async (_req, res): Promise<void> => {
       topCustomers,
       topSuppliers,
     },
+  });
+});
+
+// ── GET /reports/conversion ────────────────────────────────────────────────────
+router.get("/reports/conversion", async (req, res): Promise<void> => {
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+
+  // ── fetch all needed data ──
+  const [
+    inquiries,
+    inquiryItems,
+    quotations,
+    quotationItems,
+    customerPos,
+    supplierRfqs,
+  ] = await Promise.all([
+    db.select({ id: inquiriesTable.id, status: inquiriesTable.status, createdAt: inquiriesTable.createdAt }).from(inquiriesTable),
+    db.select({ id: inquiryItemsTable.id, inquiryId: inquiryItemsTable.inquiryId }).from(inquiryItemsTable),
+    db.select({
+      id: quotationsTable.id,
+      inquiryId: quotationsTable.inquiryId,
+      customerId: quotationsTable.customerId,
+      quotationNumber: quotationsTable.quotationNumber,
+      status: quotationsTable.status,
+      totalAmount: quotationsTable.totalAmount,
+      validUntil: quotationsTable.validUntil,
+      createdAt: quotationsTable.createdAt,
+    }).from(quotationsTable),
+    db.select({ id: quotationItemsTable.id, quotationId: quotationItemsTable.quotationId }).from(quotationItemsTable),
+    db.select({
+      id: customerPosTable.id,
+      quotationId: customerPosTable.quotationId,
+      totalAmount: customerPosTable.totalAmount,
+      createdAt: customerPosTable.createdAt,
+    }).from(customerPosTable),
+    db.select({
+      id: supplierRfqsTable.id,
+      inquiryId: supplierRfqsTable.inquiryId,
+      status: supplierRfqsTable.status,
+      quotedPrice: supplierRfqsTable.quotedPrice,
+      createdAt: supplierRfqsTable.createdAt,
+    }).from(supplierRfqsTable),
+  ]);
+
+  // ── Inquiry items breakdown ──
+  const totalInquiryItems = inquiryItems.length;
+  const inquiryIdsWithQuotation = new Set(quotations.map((q) => q.inquiryId));
+  const pricedInquiryItems = inquiryItems.filter((item) => inquiryIdsWithQuotation.has(item.inquiryId)).length;
+  const unpricedInquiryItems = totalInquiryItems - pricedInquiryItems;
+  const totalQuotationItems = quotationItems.length;
+
+  // ── Quotation funnel ──
+  const totalQuotations = quotations.length;
+  const byQStatus: Record<string, number> = {};
+  for (const q of quotations) { byQStatus[q.status] = (byQStatus[q.status] ?? 0) + 1; }
+
+  // quotations that generated a PO
+  const quotationIdsWithPo = new Set(customerPos.map((p) => p.quotationId).filter(Boolean) as number[]);
+  const quotationsWithPo = quotations.filter((q) => quotationIdsWithPo.has(q.id)).length;
+
+  // conversion rate = quotations that became POs / total non-draft quotations
+  const decidedQuotations = (byQStatus["approved"] ?? 0) + (byQStatus["rejected"] ?? 0);
+  const conversionRate = decidedQuotations > 0
+    ? Math.round(((byQStatus["approved"] ?? 0) / decidedQuotations) * 10000) / 100
+    : 0;
+  // broader conversion = POs from quotations / all quotations
+  const broadConversionRate = totalQuotations > 0
+    ? Math.round((quotationsWithPo / totalQuotations) * 10000) / 100
+    : 0;
+
+  // ── Expiring quotations ──
+  const expiringToday = quotations.filter((q) => q.validUntil === todayStr && q.status === "draft");
+  const expiringTomorrow = quotations.filter((q) => q.validUntil === tomorrowStr && q.status === "draft");
+  const expiringThisWeek = quotations.filter((q) => {
+    if (!q.validUntil || q.status !== "draft") return false;
+    const d = q.validUntil;
+    return d >= todayStr && d <= new Date(today.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+  });
+
+  // ── RFQ response stats ──
+  const rfqByStatus: Record<string, number> = {};
+  for (const r of supplierRfqs) { rfqByStatus[r.status] = (rfqByStatus[r.status] ?? 0) + 1; }
+  const rfqNoResponse = supplierRfqs.filter((r) => r.status === "pending" || r.status === "sent").length;
+  const rfqReceived = supplierRfqs.filter((r) => r.status === "received").length;
+
+  // ── Time-based breakdown helper ──
+  function groupByPeriod(
+    items: { createdAt: Date; quotationId?: number | null }[],
+    allQuotations: typeof quotations,
+    posWithQuotation: Set<number>,
+    period: "week" | "month" | "quarter"
+  ) {
+    const map = new Map<string, { label: string; total: number; converted: number; revenue: number }>();
+
+    function getPeriodKey(d: Date): { key: string; label: string } {
+      const year = d.getFullYear();
+      if (period === "week") {
+        // ISO week
+        const start = new Date(d);
+        start.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1));
+        const key = `${year}-W${String(Math.ceil((((start.getTime() - new Date(year, 0, 1).getTime()) / 86400000) + 1) / 7)).padStart(2, "0")}`;
+        return { key, label: `أسبوع ${key}` };
+      } else if (period === "month") {
+        const key = `${year}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        const arabicMonths = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+        return { key, label: `${arabicMonths[d.getMonth()]} ${year}` };
+      } else {
+        const q = Math.ceil((d.getMonth() + 1) / 3);
+        const key = `${year}-Q${q}`;
+        return { key, label: `ربع ${q} - ${year}` };
+      }
+    }
+
+    for (const q of allQuotations) {
+      const d = new Date(q.createdAt);
+      const { key, label } = getPeriodKey(d);
+      const entry = map.get(key) ?? { label, total: 0, converted: 0, revenue: 0 };
+      entry.total += 1;
+      if (posWithQuotation.has(q.id)) {
+        entry.converted += 1;
+        entry.revenue += q.totalAmount != null ? Number(q.totalAmount) : 0;
+      }
+      map.set(key, entry);
+    }
+
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, v]) => ({
+        key,
+        label: v.label,
+        total: v.total,
+        converted: v.converted,
+        revenue: v.revenue,
+        rate: v.total > 0 ? Math.round((v.converted / v.total) * 10000) / 100 : 0,
+      }));
+  }
+
+  const weeklyBreakdown = groupByPeriod([], quotations, quotationIdsWithPo, "week").slice(-12);
+  const monthlyBreakdown = groupByPeriod([], quotations, quotationIdsWithPo, "month").slice(-12);
+  const quarterlyBreakdown = groupByPeriod([], quotations, quotationIdsWithPo, "quarter").slice(-8);
+
+  res.json({
+    // Inquiry & items
+    totalInquiries: inquiries.length,
+    inquiryByStatus: (() => { const m: Record<string, number> = {}; for (const i of inquiries) { m[i.status] = (m[i.status] ?? 0) + 1; } return m; })(),
+    totalInquiryItems,
+    pricedInquiryItems,
+    unpricedInquiryItems,
+    totalQuotationItems,
+
+    // Quotation funnel
+    totalQuotations,
+    byStatus: byQStatus,
+    quotationsWithPo,
+    conversionRate,
+    broadConversionRate,
+
+    // Expiring
+    expiringToday: expiringToday.map((q) => ({ id: q.id, quotationNumber: q.quotationNumber, validUntil: q.validUntil, totalAmount: q.totalAmount != null ? Number(q.totalAmount) : null })),
+    expiringTomorrow: expiringTomorrow.map((q) => ({ id: q.id, quotationNumber: q.quotationNumber, validUntil: q.validUntil, totalAmount: q.totalAmount != null ? Number(q.totalAmount) : null })),
+    expiringThisWeek: expiringThisWeek.map((q) => ({ id: q.id, quotationNumber: q.quotationNumber, validUntil: q.validUntil, totalAmount: q.totalAmount != null ? Number(q.totalAmount) : null })),
+
+    // RFQ
+    totalRfqs: supplierRfqs.length,
+    rfqByStatus,
+    rfqNoResponse,
+    rfqReceived,
+
+    // Time series
+    weeklyBreakdown,
+    monthlyBreakdown,
+    quarterlyBreakdown,
   });
 });
 
