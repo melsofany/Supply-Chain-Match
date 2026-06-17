@@ -56,6 +56,31 @@ export interface RfqComparison {
   prices: RfqComparisonPrice[];
 }
 
+export function useAllSupplierRfqs() {
+  const [data, setData] = useState<SupplierRfq[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const json = await customFetch<SupplierRfq[]>(`/api/supplier-rfqs`);
+      setData(json);
+      setError(null);
+    } catch (e: any) {
+      setError(e.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, isLoading, error, refetch: fetchData };
+}
+
 export function useSupplierRfqsByInquiry(inquiryId: number) {
   const [data, setData] = useState<SupplierRfq[]>([]);
   const [isLoading, setIsLoading] = useState(true);
