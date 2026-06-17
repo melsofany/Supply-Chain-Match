@@ -31,7 +31,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const title = getTitle(location);
 
   return (
-    <div className="flex min-h-screen w-full bg-background flex-col md:flex-row">
+    <div className="flex min-h-screen w-full bg-background flex-col md:flex-row-reverse">
       <Sidebar />
 
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
