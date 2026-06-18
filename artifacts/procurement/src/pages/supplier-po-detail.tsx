@@ -169,7 +169,7 @@ export default function SupplierPoDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => setLocation("/supplier-pos")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -334,7 +334,7 @@ export default function SupplierPoDetail() {
       {/* Egyptian Tax Law Reference */}
       <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3 text-sm text-amber-900" dir="rtl">
         <p className="font-bold mb-2">📋 مرجع القانون المصري 2026 — الضرائب المُطبَّقة</p>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs">
+        <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1 text-xs">
           <div><span className="font-semibold">التأمين النهائي 3%:</span> قانون 182/2018 — عقود الجهات العامة فقط</div>
           <div><span className="font-semibold">ضريبة القيمة المضافة 14%:</span> قانون 67/2016 — جميع المعاملات</div>
           <div><span className="font-semibold">خصم تحت الحساب 0.5%:</span> المادة 59 — قانون 91/2005</div>
@@ -376,7 +376,7 @@ export default function SupplierPoDetail() {
                 <span>لا يوجد أمر عميل مرتبط — الربح غير متاح.</span>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid sm:grid-cols-3 gap-4">
                 <div className="text-center">
                   <p className="text-xs text-muted-foreground mb-1">الإيراد</p>
                   <p className="text-xl font-bold text-green-600">{fmt(analysis.revenue)}</p>

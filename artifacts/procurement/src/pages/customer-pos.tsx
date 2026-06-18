@@ -167,7 +167,7 @@ export default function CustomerPos() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>PO Number</Label>
                 <Input value={form.poNumber} onChange={(e) => setForm({ ...form, poNumber: e.target.value })} placeholder="PO-2024-001" />

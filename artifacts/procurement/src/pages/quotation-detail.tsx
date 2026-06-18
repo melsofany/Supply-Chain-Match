@@ -280,7 +280,7 @@ export default function QuotationDetail() {
   return (
     <div className="space-y-6">
       <PrintHeader title="عرض سعر" subtitle={quotation.quotationNumber ?? `#${quotation.id}`} />
-      <div className="flex items-center gap-3 print:hidden">
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
         <Button variant="ghost" size="icon" onClick={() => setLocation("/quotations")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -406,7 +406,7 @@ export default function QuotationDetail() {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid sm:grid-cols-3 gap-3">
               <div className="space-y-1.5">
                 <Label>الكمية *</Label>
                 <Input

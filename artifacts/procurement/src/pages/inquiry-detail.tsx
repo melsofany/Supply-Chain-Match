@@ -539,7 +539,7 @@ export default function InquiryDetail() {
   return (
     <div className="space-y-6">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => setLocation("/inquiries")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -775,7 +775,7 @@ export default function InquiryDetail() {
               <Label>الوصف *</Label>
               <Input value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} data-testid="input-item-description" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>الكمية *</Label>
                 <Input type="number" value={itemForm.quantity} onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })} data-testid="input-item-quantity" />
@@ -823,7 +823,7 @@ export default function InquiryDetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>رقم الطلب</Label>
                 <Input value={rfqForm.rfqNumber} onChange={(e) => setRfqForm({ ...rfqForm, rfqNumber: e.target.value })} placeholder="RFQ-001" />

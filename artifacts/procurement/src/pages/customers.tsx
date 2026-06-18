@@ -251,7 +251,7 @@ export default function Customers() {
                 data-testid="input-customer-name"
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="c-contact">Contact Person</Label>
                 <Input

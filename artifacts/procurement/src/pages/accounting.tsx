@@ -87,7 +87,7 @@ function ChartOfAccounts() {
       {Object.entries(byGroup).map(([gname, accounts]) => {
         const gtype = accounts[0]?.group?.type ?? "";
         return (
-          <div key={gname} className="border rounded-lg overflow-hidden">
+          <div key={gname} className="border rounded-lg overflow-x-auto">
             <div className="bg-muted/40 px-4 py-2.5 flex items-center justify-between">
               <span className="font-semibold text-sm">{gname}</span>
               <Badge className={`text-xs ${typeColors[gtype] ?? "bg-gray-100 text-gray-700"}`}>
@@ -200,7 +200,7 @@ function JournalEntries() {
               0
             );
             return (
-              <div key={v.id} className="border rounded-lg overflow-hidden">
+              <div key={v.id} className="border rounded-lg overflow-x-auto">
                 <div className="bg-muted/30 px-4 py-2.5 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Badge
@@ -293,7 +293,7 @@ function TrialBalance() {
           {balanced ? "✓ متوازن" : "⚠ غير متوازن"}
         </Badge>
       </div>
-      <div className="border rounded-lg overflow-hidden">
+      <div className="border rounded-lg overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/40">
@@ -360,7 +360,7 @@ function FinancialStatements() {
         {plLoading ? (
           <Skeleton className="h-48 w-full" />
         ) : (
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-x-auto">
             <div className="bg-green-50 px-4 py-2 border-b">
               <span className="font-bold text-sm text-green-800">الإيرادات</span>
             </div>
@@ -416,7 +416,7 @@ function FinancialStatements() {
         {bsLoading ? (
           <Skeleton className="h-48 w-full" />
         ) : (
-          <div className="border rounded-lg overflow-hidden">
+          <div className="border rounded-lg overflow-x-auto">
             <div className="bg-blue-50 px-4 py-2 border-b">
               <span className="font-bold text-sm text-blue-800">الأصول</span>
             </div>
@@ -558,7 +558,7 @@ function VatReport() {
               <h3 className="font-bold text-sm mb-2 text-blue-700">
                 ضريبة مدخلات — مشتريات من الموردين
               </h3>
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-blue-50">
@@ -587,7 +587,7 @@ function VatReport() {
               <h3 className="font-bold text-sm mb-2 text-green-700">
                 ضريبة مخرجات — فواتير للعملاء
               </h3>
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-green-50">
@@ -665,7 +665,7 @@ function WhtReport() {
       {isLoading ? (
         <Skeleton className="h-48 w-full" />
       ) : (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-lg overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-amber-50">
@@ -1022,7 +1022,7 @@ export default function Accounting() {
                 ))}
               </div>
             ) : (
-              <div className="border rounded-lg overflow-hidden">
+              <div className="border rounded-lg overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/40">

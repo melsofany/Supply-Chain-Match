@@ -10,12 +10,14 @@ const PAGE_TITLES: Record<string, string> = {
   "/suppliers":      "الموردون",
   "/inquiries":      "الاستفسارات",
   "/quotations":     "عروض الأسعار",
+  "/supplier-rfqs":  "عروض أسعار الموردين",
   "/customer-pos":   "أوامر شراء العملاء",
   "/supplier-pos":   "أوامر شراء الموردين",
   "/delivery-notes": "أذون التسليم",
   "/invoices":       "الفواتير",
   "/reports":        "التقارير",
   "/accounting":     "المحاسبة",
+  "/whatsapp-chats": "محادثات واتساب",
   "/users":          "المستخدمون",
 };
 

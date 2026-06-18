@@ -149,7 +149,7 @@ export default function CustomerPoDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => setLocation("/customer-pos")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -183,7 +183,7 @@ export default function CustomerPoDetail() {
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">التفاصيل</CardTitle></CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <Label className="text-xs text-muted-foreground">الحالة</Label>
               <Select value={po.status} onValueChange={handleStatusChange}>
@@ -352,7 +352,7 @@ export default function CustomerPoDetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>رقم الأمر</Label>
                 <Input value={supplierPoForm.poNumber} onChange={(e) => setSupplierPoForm({ ...supplierPoForm, poNumber: e.target.value })} />

@@ -93,7 +93,7 @@ export default function SupplierRfqDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => history.back()}>
           <ArrowLeft className="h-4 w-4" />
         </Button>

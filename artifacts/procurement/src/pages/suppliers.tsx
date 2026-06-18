@@ -315,7 +315,7 @@ export default function Suppliers() {
               <Label>الاسم *</Label>
               <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="input-supplier-name" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>المسؤول / مندوب التواصل</Label>
                 <Input value={form.contactName} onChange={(e) => setForm({ ...form, contactName: e.target.value })} />
@@ -348,7 +348,7 @@ export default function Suppliers() {
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>رقم الهاتف</Label>
                 <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -389,7 +389,7 @@ export default function Suppliers() {
             {/* form */}
             <div className="rounded-md border p-3 space-y-3 bg-muted/30">
               <p className="text-sm font-medium">{editingCatId ? "تعديل التصنيف" : "إضافة تصنيف جديد"}</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label>الاسم *</Label>
                   <Input

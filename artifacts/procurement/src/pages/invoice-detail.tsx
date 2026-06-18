@@ -53,7 +53,7 @@ export default function InvoiceDetail() {
   return (
     <div className="space-y-6 print:space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3 print:hidden">
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
         <Button variant="ghost" size="icon" onClick={() => setLocation("/invoices")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -80,7 +80,7 @@ export default function InvoiceDetail() {
       <Card>
         <CardHeader className="pb-3"><CardTitle className="text-base">تفاصيل الفاتورة</CardTitle></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid sm:grid-cols-2 gap-4">
             <div>
               <Label className="text-xs text-muted-foreground">رقم الفاتورة</Label>
               <p className="mt-1 font-bold text-lg">{invoice.invoiceNumber}</p>
