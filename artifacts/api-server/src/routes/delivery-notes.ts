@@ -7,6 +7,7 @@ import {
   customerPosTable,
   customersTable,
 } from "@workspace/db";
+import { parseId } from "../lib/route-helpers";
 
 const router: IRouter = Router();
 
@@ -131,16 +132,14 @@ router.post("/delivery-notes", async (req, res): Promise<void> => {
 });
 
 router.get("/delivery-notes/:id", async (req, res): Promise<void> => {
-  const id = Number(req.params.id);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const id = parseId(req.params.id);
   const result = await buildDeliveryNote(id);
   if (!result) { res.status(404).json({ error: "Delivery note not found" }); return; }
   res.json(result);
 });
 
 router.patch("/delivery-notes/:id", async (req, res): Promise<void> => {
-  const id = Number(req.params.id);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const id = parseId(req.params.id);
   const { status, issueDate, signedFileUrl, notes } = req.body;
   const upd: any = {};
   if (status != null) upd.status = status;
@@ -154,8 +153,7 @@ router.patch("/delivery-notes/:id", async (req, res): Promise<void> => {
 });
 
 router.post("/delivery-notes/:id/approve-finance", async (req, res): Promise<void> => {
-  const id = Number(req.params.id);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const id = parseId(req.params.id);
   await db
     .update(deliveryNotesTable)
     .set({ status: "finance_approved", financeApprovedAt: new Date() })
@@ -166,8 +164,7 @@ router.post("/delivery-notes/:id/approve-finance", async (req, res): Promise<voi
 });
 
 router.post("/delivery-notes/:id/mark-signed", async (req, res): Promise<void> => {
-  const id = Number(req.params.id);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const id = parseId(req.params.id);
   const { signedFileUrl } = req.body ?? {};
   const upd: any = { status: "signed" };
   if (signedFileUrl) upd.signedFileUrl = signedFileUrl;

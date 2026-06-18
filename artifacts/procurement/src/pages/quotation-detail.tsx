@@ -38,12 +38,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  sent: "bg-blue-100 text-blue-700",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-};
+import { QUOTATION_STATUS_COLORS } from "@/lib/status";
 
 function PriceHistoryWarning({ description }: { description: string }) {
   const { data: suggestions } = useGetPriceHistorySuggestions(
@@ -312,7 +307,7 @@ export default function QuotationDetail() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[quotation.status] ?? ""}`}>
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${QUOTATION_STATUS_COLORS[quotation.status] ?? ""}`}>
             {quotation.status === "draft" ? "مسودة" : quotation.status === "sent" ? "مرسل" : quotation.status === "approved" ? "معتمد" : quotation.status === "rejected" ? "مرفوض" : quotation.status}
           </span>
           <Button size="sm" variant="outline" onClick={() => window.print()}>

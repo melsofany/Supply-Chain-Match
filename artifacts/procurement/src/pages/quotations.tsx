@@ -43,12 +43,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  sent: "bg-blue-100 text-blue-700",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-};
+import { QUOTATION_STATUS_COLORS } from "@/lib/status";
 
 export default function Quotations() {
   const [, setLocation] = useLocation();
@@ -180,7 +175,7 @@ export default function Quotations() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_COLORS[q.status] ?? ""}`}>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${QUOTATION_STATUS_COLORS[q.status] ?? ""}`}>
                       {q.status}
                     </span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />

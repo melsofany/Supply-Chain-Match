@@ -22,6 +22,7 @@ import { Separator } from "@/components/ui/separator";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { SUPPLIER_PO_STATUS_COLORS, SUPPLIER_PO_STATUS_LABELS } from "@/lib/status";
 
 const BASE = "/api";
 const fmt = (n: number) =>
@@ -870,20 +871,6 @@ export default function Accounting() {
 
   const s = summary as any;
 
-  const STATUS_COLORS: Record<string, string> = {
-    draft: "bg-gray-100 text-gray-700",
-    sent: "bg-blue-100 text-blue-700",
-    confirmed: "bg-yellow-100 text-yellow-700",
-    delivered: "bg-green-100 text-green-800",
-    cancelled: "bg-red-100 text-red-700",
-  };
-  const STATUS_LABELS: Record<string, string> = {
-    draft: "مسودة",
-    sent: "مُرسل",
-    confirmed: "مُؤكد",
-    delivered: "مُسلَّم",
-    cancelled: "ملغي",
-  };
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -1073,9 +1060,9 @@ export default function Accounting() {
                         </TableCell>
                         <TableCell>
                           <Badge
-                            className={`text-xs ${STATUS_COLORS[a.status] ?? "bg-gray-100 text-gray-700"}`}
+                            className={`text-xs ${SUPPLIER_PO_STATUS_COLORS[a.status] ?? "bg-gray-100 text-gray-700"}`}
                           >
-                            {STATUS_LABELS[a.status] ?? a.status}
+                            {SUPPLIER_PO_STATUS_LABELS[a.status] ?? a.status}
                           </Badge>
                         </TableCell>
                       </TableRow>

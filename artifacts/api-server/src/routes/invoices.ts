@@ -7,6 +7,7 @@ import {
   customerPosTable,
   customersTable,
 } from "@workspace/db";
+import { parseId, parseAmount } from "../lib/route-helpers";
 
 const router: IRouter = Router();
 
@@ -27,10 +28,6 @@ async function nextInvoiceNumber(): Promise<string> {
     }
   }
   return `${prefix}${String(max + 1).padStart(4, "0")}`;
-}
-
-function parseAmount(v: string | null | undefined): number | null {
-  return v != null ? Number(v) : null;
 }
 
 async function buildInvoice(id: number) {
@@ -136,16 +133,14 @@ router.post("/invoices", async (req, res): Promise<void> => {
 });
 
 router.get("/invoices/:id", async (req, res): Promise<void> => {
-  const id = Number(req.params.id);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const id = parseId(req.params.id);
   const result = await buildInvoice(id);
   if (!result) { res.status(404).json({ error: "Invoice not found" }); return; }
   res.json(result);
 });
 
 router.patch("/invoices/:id", async (req, res): Promise<void> => {
-  const id = Number(req.params.id);
-  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const id = parseId(req.params.id);
   const { status, issueDate, totalAmount, notes } = req.body;
   const upd: any = {};
   if (status != null) upd.status = status;

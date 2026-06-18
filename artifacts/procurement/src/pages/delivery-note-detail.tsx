@@ -22,23 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  pending_finance: "bg-yellow-100 text-yellow-800",
-  finance_approved: "bg-blue-100 text-blue-700",
-  delivered: "bg-purple-100 text-purple-700",
-  signed: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  pending_finance: "بانتظار اعتماد المالية",
-  finance_approved: "معتمد مالياً",
-  delivered: "تم التسليم",
-  signed: "موقع من العميل",
-  cancelled: "ملغي",
-};
+import { DELIVERY_NOTE_STATUS_COLORS, DELIVERY_NOTE_STATUS_LABELS } from "@/lib/status";
 
 export default function DeliveryNoteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -161,8 +145,8 @@ export default function DeliveryNoteDetail() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[dn.status] ?? ""}`}>
-            {STATUS_LABELS[dn.status] ?? dn.status}
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${DELIVERY_NOTE_STATUS_COLORS[dn.status] ?? ""}`}>
+            {DELIVERY_NOTE_STATUS_LABELS[dn.status] ?? dn.status}
           </span>
           {canSubmitForFinance && (
             <Button size="sm" variant="outline" onClick={() => setSubmitForFinanceOpen(true)}>
@@ -231,7 +215,7 @@ export default function DeliveryNoteDetail() {
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">الحالة</Label>
-              <p className="mt-1"><span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[dn.status] ?? ""}`}>{STATUS_LABELS[dn.status] ?? dn.status}</span></p>
+              <p className="mt-1"><span className={`text-xs font-medium px-2 py-0.5 rounded-full ${DELIVERY_NOTE_STATUS_COLORS[dn.status] ?? ""}`}>{DELIVERY_NOTE_STATUS_LABELS[dn.status] ?? dn.status}</span></p>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">العميل</Label>

@@ -22,6 +22,7 @@ import {
   RejectQuotationParams,
   RejectQuotationResponse,
 } from "@workspace/api-zod";
+import { validate, parseAmount } from "../lib/route-helpers";
 
 const router: IRouter = Router();
 
@@ -63,7 +64,7 @@ async function buildQuotationWithItems(id: number) {
 
   return {
     ...quotation,
-    totalAmount: quotation.totalAmount != null ? Number(quotation.totalAmount) : null,
+    totalAmount: parseAmount(quotation.totalAmount),
     items: items.map((item) => ({
       ...item,
       quantity: Number(item.quantity),
@@ -130,7 +131,7 @@ router.get("/quotations", async (req, res): Promise<void> => {
 
   const result = rows.map((q) => ({
     ...q,
-    totalAmount: q.totalAmount != null ? Number(q.totalAmount) : null,
+    totalAmount: parseAmount(q.totalAmount),
     items: allItems
       .filter((item) => item.quotationId === q.id)
       .map((item) => ({
@@ -145,106 +146,66 @@ router.get("/quotations", async (req, res): Promise<void> => {
 });
 
 router.post("/quotations", async (req, res): Promise<void> => {
-  const parsed = CreateQuotationBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const insertData: any = { ...parsed.data };
+  const data = validate(CreateQuotationBody, req.body);
+  const insertData: any = { ...data };
   if (insertData.totalAmount != null) insertData.totalAmount = String(insertData.totalAmount);
   const [quotation] = await db.insert(quotationsTable).values(insertData).returning();
-  res.status(201).json({ ...quotation, totalAmount: quotation.totalAmount != null ? Number(quotation.totalAmount) : null });
+  res.status(201).json({ ...quotation, totalAmount: parseAmount(quotation.totalAmount) });
 });
 
 router.get("/quotations/:id", async (req, res): Promise<void> => {
-  const params = GetQuotationParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const result = await buildQuotationWithItems(params.data.id);
-  if (!result) {
-    res.status(404).json({ error: "Quotation not found" });
-    return;
-  }
+  const { id } = validate(GetQuotationParams, req.params);
+  const result = await buildQuotationWithItems(id);
+  if (!result) { res.status(404).json({ error: "Quotation not found" }); return; }
   res.json(result);
 });
 
 router.patch("/quotations/:id", async (req, res): Promise<void> => {
-  const params = UpdateQuotationParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = UpdateQuotationBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const updateData: any = { ...parsed.data };
+  const { id } = validate(UpdateQuotationParams, req.params);
+  const data = validate(UpdateQuotationBody, req.body);
+  const updateData: any = { ...data };
   if (updateData.totalAmount != null) updateData.totalAmount = String(updateData.totalAmount);
   const [quotation] = await db
     .update(quotationsTable)
     .set(updateData)
-    .where(eq(quotationsTable.id, params.data.id))
+    .where(eq(quotationsTable.id, id))
     .returning();
-  if (!quotation) {
-    res.status(404).json({ error: "Quotation not found" });
-    return;
-  }
-  res.json(UpdateQuotationResponse.parse({ ...quotation, totalAmount: quotation.totalAmount != null ? Number(quotation.totalAmount) : null }));
+  if (!quotation) { res.status(404).json({ error: "Quotation not found" }); return; }
+  res.json(UpdateQuotationResponse.parse({ ...quotation, totalAmount: parseAmount(quotation.totalAmount) }));
 });
 
 router.delete("/quotations/:id", async (req, res): Promise<void> => {
-  const params = DeleteQuotationParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  await db.delete(quotationItemsTable).where(eq(quotationItemsTable.quotationId, params.data.id));
-  const [quotation] = await db.delete(quotationsTable).where(eq(quotationsTable.id, params.data.id)).returning();
-  if (!quotation) {
-    res.status(404).json({ error: "Quotation not found" });
-    return;
-  }
+  const { id } = validate(DeleteQuotationParams, req.params);
+  await db.delete(quotationItemsTable).where(eq(quotationItemsTable.quotationId, id));
+  const [quotation] = await db.delete(quotationsTable).where(eq(quotationsTable.id, id)).returning();
+  if (!quotation) { res.status(404).json({ error: "Quotation not found" }); return; }
   res.sendStatus(204);
 });
 
 router.post("/quotations/:id/items", async (req, res): Promise<void> => {
-  const params = AddQuotationItemParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = AddQuotationItemBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-
+  const { id } = validate(AddQuotationItemParams, req.params);
+  const data = validate(AddQuotationItemBody, req.body);
   const itemInsert: any = {
-    ...parsed.data,
-    quotationId: params.data.id,
-    quantity: String(parsed.data.quantity),
-    unitPrice: String(parsed.data.unitPrice),
+    ...data,
+    quotationId: id,
+    quantity: String(data.quantity),
+    unitPrice: String(data.unitPrice),
   };
   const [item] = await db.insert(quotationItemsTable).values(itemInsert).returning();
 
-  // Get customer ID from quotation for history logging
   const [quotation] = await db
     .select({ customerId: quotationsTable.customerId })
     .from(quotationsTable)
-    .where(eq(quotationsTable.id, params.data.id));
+    .where(eq(quotationsTable.id, id));
 
-  // Auto-log to price history
   await logPriceHistory({
-    itemDescription: parsed.data.description,
-    supplierId: parsed.data.supplierId ?? null,
+    itemDescription: data.description,
+    supplierId: data.supplierId ?? null,
     customerId: quotation?.customerId ?? null,
-    quotationId: params.data.id,
-    unitPrice: Number(parsed.data.unitPrice),
-    quantity: Number(parsed.data.quantity),
-    unit: parsed.data.unit ?? null,
+    quotationId: id,
+    unitPrice: Number(data.unitPrice),
+    quantity: Number(data.quantity),
+    unit: data.unit ?? null,
     resultedInPo: false,
   });
 
@@ -258,41 +219,29 @@ router.post("/quotations/:id/items", async (req, res): Promise<void> => {
 });
 
 router.patch("/quotations/:id/items/:itemId", async (req, res): Promise<void> => {
-  const params = UpdateQuotationItemParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = UpdateQuotationItemBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const itemUpdate: any = { ...parsed.data };
+  const { id, itemId } = validate(UpdateQuotationItemParams, req.params);
+  const data = validate(UpdateQuotationItemBody, req.body);
+  const itemUpdate: any = { ...data };
   if (itemUpdate.quantity != null) itemUpdate.quantity = String(itemUpdate.quantity);
   if (itemUpdate.unitPrice != null) itemUpdate.unitPrice = String(itemUpdate.unitPrice);
   const [item] = await db
     .update(quotationItemsTable)
     .set(itemUpdate)
-    .where(eq(quotationItemsTable.id, params.data.itemId))
+    .where(eq(quotationItemsTable.id, itemId))
     .returning();
-  if (!item) {
-    res.status(404).json({ error: "Quotation item not found" });
-    return;
-  }
+  if (!item) { res.status(404).json({ error: "Quotation item not found" }); return; }
 
-  // If price or description changed, log a new history entry
-  if (parsed.data.unitPrice != null || parsed.data.description != null) {
+  if (data.unitPrice != null || data.description != null) {
     const [quotation] = await db
       .select({ customerId: quotationsTable.customerId })
       .from(quotationsTable)
-      .where(eq(quotationsTable.id, params.data.id));
+      .where(eq(quotationsTable.id, id));
 
     await logPriceHistory({
       itemDescription: item.description,
       supplierId: item.supplierId ?? null,
       customerId: quotation?.customerId ?? null,
-      quotationId: params.data.id,
+      quotationId: id,
       unitPrice: Number(item.unitPrice),
       quantity: Number(item.quantity),
       unit: item.unit ?? null,
@@ -310,70 +259,47 @@ router.patch("/quotations/:id/items/:itemId", async (req, res): Promise<void> =>
 });
 
 router.delete("/quotations/:id/items/:itemId", async (req, res): Promise<void> => {
-  const params = DeleteQuotationItemParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+  const { itemId } = validate(DeleteQuotationItemParams, req.params);
   const [item] = await db
     .delete(quotationItemsTable)
-    .where(eq(quotationItemsTable.id, params.data.itemId))
+    .where(eq(quotationItemsTable.id, itemId))
     .returning();
-  if (!item) {
-    res.status(404).json({ error: "Quotation item not found" });
-    return;
-  }
+  if (!item) { res.status(404).json({ error: "Quotation item not found" }); return; }
   res.sendStatus(204);
 });
 
 router.post("/quotations/:id/approve", async (req, res): Promise<void> => {
-  const params = ApproveQuotationParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+  const { id } = validate(ApproveQuotationParams, req.params);
   const [quotation] = await db
     .update(quotationsTable)
     .set({ status: "approved" })
-    .where(eq(quotationsTable.id, params.data.id))
+    .where(eq(quotationsTable.id, id))
     .returning();
-  if (!quotation) {
-    res.status(404).json({ error: "Quotation not found" });
-    return;
-  }
+  if (!quotation) { res.status(404).json({ error: "Quotation not found" }); return; }
 
-  // Mark price history entries for this quotation as resulted_in_po = true
   await db
     .update(itemPriceHistoryTable)
     .set({ resultedInPo: true })
-    .where(eq(itemPriceHistoryTable.quotationId, params.data.id));
+    .where(eq(itemPriceHistoryTable.quotationId, id));
 
-  res.json(ApproveQuotationResponse.parse({ ...quotation, totalAmount: quotation.totalAmount != null ? Number(quotation.totalAmount) : null }));
+  res.json(ApproveQuotationResponse.parse({ ...quotation, totalAmount: parseAmount(quotation.totalAmount) }));
 });
 
 router.post("/quotations/:id/reject", async (req, res): Promise<void> => {
-  const params = RejectQuotationParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+  const { id } = validate(RejectQuotationParams, req.params);
   const [quotation] = await db
     .update(quotationsTable)
     .set({ status: "rejected" })
-    .where(eq(quotationsTable.id, params.data.id))
+    .where(eq(quotationsTable.id, id))
     .returning();
-  if (!quotation) {
-    res.status(404).json({ error: "Quotation not found" });
-    return;
-  }
+  if (!quotation) { res.status(404).json({ error: "Quotation not found" }); return; }
 
-  // Ensure price history entries stay as resulted_in_po = false (rejected = no PO issued)
   await db
     .update(itemPriceHistoryTable)
     .set({ resultedInPo: false })
-    .where(eq(itemPriceHistoryTable.quotationId, params.data.id));
+    .where(eq(itemPriceHistoryTable.quotationId, id));
 
-  res.json(RejectQuotationResponse.parse({ ...quotation, totalAmount: quotation.totalAmount != null ? Number(quotation.totalAmount) : null }));
+  res.json(RejectQuotationResponse.parse({ ...quotation, totalAmount: parseAmount(quotation.totalAmount) }));
 });
 
 export default router;

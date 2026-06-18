@@ -4,19 +4,7 @@ import { useListInvoices, getListInvoicesQueryKey } from "@workspace/api-client-
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  issued: "bg-blue-100 text-blue-700",
-  paid: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  issued: "صادرة",
-  paid: "مدفوعة",
-  cancelled: "ملغاة",
-};
+import { INVOICE_STATUS_COLORS, INVOICE_STATUS_LABELS } from "@/lib/status";
 
 export default function Invoices() {
   const [, setLocation] = useLocation();
@@ -56,8 +44,8 @@ export default function Invoices() {
                   {inv.totalAmount != null && (
                     <span className="text-sm font-semibold">{Number(inv.totalAmount).toLocaleString()} ج.م</span>
                   )}
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[inv.status] ?? ""}`}>
-                    {STATUS_LABELS[inv.status] ?? inv.status}
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${INVOICE_STATUS_COLORS[inv.status] ?? ""}`}>
+                    {INVOICE_STATUS_LABELS[inv.status] ?? inv.status}
                   </span>
                   <span className="text-xs text-muted-foreground">{new Date(inv.createdAt).toLocaleDateString("ar-EG")}</span>
                 </div>

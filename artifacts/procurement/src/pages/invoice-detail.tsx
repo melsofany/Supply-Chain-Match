@@ -15,19 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  issued: "bg-blue-100 text-blue-700",
-  paid: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  issued: "صادرة",
-  paid: "مدفوعة",
-  cancelled: "ملغاة",
-};
+import { INVOICE_STATUS_COLORS, INVOICE_STATUS_LABELS } from "@/lib/status";
 
 export default function InvoiceDetail() {
   const { id } = useParams<{ id: string }>();
@@ -76,8 +64,8 @@ export default function InvoiceDetail() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[invoice.status] ?? ""}`}>
-            {STATUS_LABELS[invoice.status] ?? invoice.status}
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${INVOICE_STATUS_COLORS[invoice.status] ?? ""}`}>
+            {INVOICE_STATUS_LABELS[invoice.status] ?? invoice.status}
           </span>
           <Button size="sm" variant="outline" onClick={() => window.print()}>
             <Printer className="h-4 w-4 mr-1.5" />
@@ -112,7 +100,7 @@ export default function InvoiceDetail() {
                   </SelectContent>
                 </Select>
               </div>
-              <p className="mt-1 hidden print:block">{STATUS_LABELS[invoice.status]}</p>
+              <p className="mt-1 hidden print:block">{INVOICE_STATUS_LABELS[invoice.status]}</p>
             </div>
             <div>
               <Label className="text-xs text-muted-foreground">العميل</Label>

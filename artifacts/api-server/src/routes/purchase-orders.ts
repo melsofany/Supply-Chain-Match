@@ -13,12 +13,9 @@ import {
   UpdateSupplierPoBody,
   UpdateSupplierPoResponse,
 } from "@workspace/api-zod";
+import { validate, parseAmount } from "../lib/route-helpers";
 
 const router: IRouter = Router();
-
-function parseAmount(v: string | null | undefined): number | null {
-  return v != null ? Number(v) : null;
-}
 
 function enrichSupplierPo(po: {
   totalAmount: string | null;
@@ -85,17 +82,12 @@ router.get("/customer-pos", async (req, res): Promise<void> => {
 });
 
 router.post("/customer-pos", async (req, res): Promise<void> => {
-  const parsed = CreateCustomerPoBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const ins: any = { ...parsed.data };
+  const data = validate(CreateCustomerPoBody, req.body);
+  const ins: any = { ...data };
   if (ins.totalAmount != null) ins.totalAmount = String(ins.totalAmount);
   const [po] = await db.insert(customerPosTable).values(ins).returning();
 
-  // Auto-create Supplier POs from quotation items if quotationId is provided
-  if (parsed.data.quotationId) {
+  if (data.quotationId) {
     const items = await db
       .select({
         supplierId: quotationItemsTable.supplierId,
@@ -103,9 +95,8 @@ router.post("/customer-pos", async (req, res): Promise<void> => {
         unitPrice: quotationItemsTable.unitPrice,
       })
       .from(quotationItemsTable)
-      .where(eq(quotationItemsTable.quotationId, parsed.data.quotationId));
+      .where(eq(quotationItemsTable.quotationId, data.quotationId));
 
-    // Group items by supplierId and sum their totals
     const supplierTotals = new Map<number, number>();
     for (const item of items) {
       if (item.supplierId == null) continue;
@@ -113,7 +104,6 @@ router.post("/customer-pos", async (req, res): Promise<void> => {
       supplierTotals.set(item.supplierId, (supplierTotals.get(item.supplierId) ?? 0) + lineTotal);
     }
 
-    // Create one Supplier PO per unique supplier
     for (const [supplierId, totalAmount] of supplierTotals.entries()) {
       await db.insert(supplierPosTable).values({
         supplierId,
@@ -128,11 +118,7 @@ router.post("/customer-pos", async (req, res): Promise<void> => {
 });
 
 router.get("/customer-pos/:id", async (req, res): Promise<void> => {
-  const params = GetCustomerPoParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+  const { id } = validate(GetCustomerPoParams, req.params);
   const [po] = await db
     .select({
       id: customerPosTable.id,
@@ -147,37 +133,23 @@ router.get("/customer-pos/:id", async (req, res): Promise<void> => {
     })
     .from(customerPosTable)
     .leftJoin(customersTable, eq(customerPosTable.customerId, customersTable.id))
-    .where(eq(customerPosTable.id, params.data.id));
+    .where(eq(customerPosTable.id, id));
 
-  if (!po) {
-    res.status(404).json({ error: "Customer PO not found" });
-    return;
-  }
+  if (!po) { res.status(404).json({ error: "Customer PO not found" }); return; }
   res.json({ ...po, totalAmount: parseAmount(po.totalAmount) });
 });
 
 router.patch("/customer-pos/:id", async (req, res): Promise<void> => {
-  const params = UpdateCustomerPoParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = UpdateCustomerPoBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const upd: any = { ...parsed.data };
+  const { id } = validate(UpdateCustomerPoParams, req.params);
+  const data = validate(UpdateCustomerPoBody, req.body);
+  const upd: any = { ...data };
   if (upd.totalAmount != null) upd.totalAmount = String(upd.totalAmount);
   const [po] = await db
     .update(customerPosTable)
     .set(upd)
-    .where(eq(customerPosTable.id, params.data.id))
+    .where(eq(customerPosTable.id, id))
     .returning();
-  if (!po) {
-    res.status(404).json({ error: "Customer PO not found" });
-    return;
-  }
+  if (!po) { res.status(404).json({ error: "Customer PO not found" }); return; }
   res.json(UpdateCustomerPoResponse.parse({ ...po, customerName: null, totalAmount: parseAmount(po.totalAmount) }));
 });
 
@@ -209,12 +181,8 @@ router.get("/supplier-pos", async (req, res): Promise<void> => {
 });
 
 router.post("/supplier-pos", async (req, res): Promise<void> => {
-  const parsed = CreateSupplierPoBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const ins: any = { ...parsed.data };
+  const data = validate(CreateSupplierPoBody, req.body);
+  const ins: any = { ...data };
   if (ins.totalAmount != null) ins.totalAmount = String(ins.totalAmount);
   if (ins.insuranceRate != null) ins.insuranceRate = String(ins.insuranceRate);
   if (ins.vatRate != null) ins.vatRate = String(ins.vatRate);
@@ -226,11 +194,7 @@ router.post("/supplier-pos", async (req, res): Promise<void> => {
 });
 
 router.get("/supplier-pos/:id", async (req, res): Promise<void> => {
-  const params = GetSupplierPoParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+  const { id } = validate(GetSupplierPoParams, req.params);
   const [po] = await db
     .select({
       id: supplierPosTable.id,
@@ -250,27 +214,16 @@ router.get("/supplier-pos/:id", async (req, res): Promise<void> => {
     })
     .from(supplierPosTable)
     .leftJoin(suppliersTable, eq(supplierPosTable.supplierId, suppliersTable.id))
-    .where(eq(supplierPosTable.id, params.data.id));
+    .where(eq(supplierPosTable.id, id));
 
-  if (!po) {
-    res.status(404).json({ error: "Supplier PO not found" });
-    return;
-  }
+  if (!po) { res.status(404).json({ error: "Supplier PO not found" }); return; }
   res.json(enrichSupplierPo(po));
 });
 
 router.patch("/supplier-pos/:id", async (req, res): Promise<void> => {
-  const params = UpdateSupplierPoParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = UpdateSupplierPoBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const upd: any = { ...parsed.data };
+  const { id } = validate(UpdateSupplierPoParams, req.params);
+  const data = validate(UpdateSupplierPoBody, req.body);
+  const upd: any = { ...data };
   if (upd.totalAmount != null) upd.totalAmount = String(upd.totalAmount);
   if (upd.insuranceRate != null) upd.insuranceRate = String(upd.insuranceRate);
   if (upd.vatRate != null) upd.vatRate = String(upd.vatRate);
@@ -280,12 +233,9 @@ router.patch("/supplier-pos/:id", async (req, res): Promise<void> => {
   const [po] = await db
     .update(supplierPosTable)
     .set(upd)
-    .where(eq(supplierPosTable.id, params.data.id))
+    .where(eq(supplierPosTable.id, id))
     .returning();
-  if (!po) {
-    res.status(404).json({ error: "Supplier PO not found" });
-    return;
-  }
+  if (!po) { res.status(404).json({ error: "Supplier PO not found" }); return; }
   res.json(UpdateSupplierPoResponse.parse(enrichSupplierPo({ ...po, supplierName: null })));
 });
 

@@ -31,59 +31,12 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-const STATUS_COLORS: Record<string, string> = {
-  received: "bg-blue-100 text-blue-700",
-  processing: "bg-yellow-100 text-yellow-700",
-  fulfilled: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  received: "مستلم",
-  processing: "قيد المعالجة",
-  fulfilled: "مكتمل",
-  cancelled: "ملغي",
-};
-
-const SUPPLIER_PO_STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  confirmed: "bg-blue-100 text-blue-700",
-  shipped: "bg-yellow-100 text-yellow-700",
-  delivered: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const DN_STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  pending_finance: "bg-yellow-100 text-yellow-800",
-  finance_approved: "bg-blue-100 text-blue-700",
-  delivered: "bg-purple-100 text-purple-700",
-  signed: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const DN_STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  pending_finance: "بانتظار المالية",
-  finance_approved: "معتمد مالياً",
-  delivered: "تم التسليم",
-  signed: "موقع",
-  cancelled: "ملغي",
-};
-
-const INV_STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  issued: "bg-blue-100 text-blue-700",
-  paid: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const INV_STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  issued: "صادرة",
-  paid: "مدفوعة",
-  cancelled: "ملغاة",
-};
+import {
+  CUSTOMER_PO_STATUS_COLORS, CUSTOMER_PO_STATUS_LABELS,
+  SUPPLIER_PO_STATUS_COLORS,
+  DELIVERY_NOTE_STATUS_COLORS, DELIVERY_NOTE_STATUS_LABELS,
+  INVOICE_STATUS_COLORS, INVOICE_STATUS_LABELS,
+} from "@/lib/status";
 
 export default function CustomerPoDetail() {
   const { id } = useParams<{ id: string }>();
@@ -212,8 +165,8 @@ export default function CustomerPoDetail() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${STATUS_COLORS[po.status] ?? ""}`}>
-            {STATUS_LABELS[po.status] ?? po.status}
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${CUSTOMER_PO_STATUS_COLORS[po.status] ?? ""}`}>
+            {CUSTOMER_PO_STATUS_LABELS[po.status] ?? po.status}
           </span>
           <Button size="sm" variant="outline" onClick={() => setDnDialogOpen(true)}>
             <FileCheck className="h-4 w-4 mr-1.5" />
@@ -290,8 +243,8 @@ export default function CustomerPoDetail() {
                         {dn.invoice.invoiceNumber}
                       </span>
                     )}
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${DN_STATUS_COLORS[dn.status] ?? ""}`}>
-                      {DN_STATUS_LABELS[dn.status] ?? dn.status}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${DELIVERY_NOTE_STATUS_COLORS[dn.status] ?? ""}`}>
+                      {DELIVERY_NOTE_STATUS_LABELS[dn.status] ?? dn.status}
                     </span>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setLocation(`/delivery-notes/${dn.id}`)}>
                       <ExternalLink className="h-3.5 w-3.5" />
@@ -329,8 +282,8 @@ export default function CustomerPoDetail() {
                     {inv.totalAmount != null && (
                       <span className="text-sm font-semibold">{Number(inv.totalAmount).toLocaleString()} ج.م</span>
                     )}
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${INV_STATUS_COLORS[inv.status] ?? ""}`}>
-                      {INV_STATUS_LABELS[inv.status] ?? inv.status}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${INVOICE_STATUS_COLORS[inv.status] ?? ""}`}>
+                      {INVOICE_STATUS_LABELS[inv.status] ?? inv.status}
                     </span>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setLocation(`/invoices/${inv.id}`)}>
                       <ExternalLink className="h-3.5 w-3.5" />

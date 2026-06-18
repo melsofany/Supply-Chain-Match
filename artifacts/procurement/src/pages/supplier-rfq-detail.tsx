@@ -13,19 +13,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { useSupplierRfq, useUpdateSupplierRfq } from "@/hooks/use-supplier-rfqs";
 
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-gray-100 text-gray-700",
-  sent: "bg-blue-100 text-blue-700",
-  received: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "معلق",
-  sent: "أُرسل",
-  received: "استُلم الرد",
-  cancelled: "ملغي",
-};
+import { SUPPLIER_RFQ_STATUS_COLORS, SUPPLIER_RFQ_STATUS_LABELS } from "@/lib/status";
 
 export default function SupplierRfqDetail() {
   const { id } = useParams<{ id: string }>();
@@ -97,8 +85,8 @@ export default function SupplierRfqDetail() {
             )}
           </p>
         </div>
-        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[rfq.status] ?? ""}`}>
-          {STATUS_LABELS[rfq.status] ?? rfq.status}
+        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${SUPPLIER_RFQ_STATUS_COLORS[rfq.status] ?? ""}`}>
+          {SUPPLIER_RFQ_STATUS_LABELS[rfq.status] ?? rfq.status}
         </span>
       </div>
 

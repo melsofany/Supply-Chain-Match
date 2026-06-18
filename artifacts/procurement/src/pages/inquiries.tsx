@@ -44,19 +44,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-const STATUS_COLORS: Record<string, string> = {
-  new: "bg-blue-100 text-blue-800",
-  in_progress: "bg-yellow-100 text-yellow-800",
-  quoted: "bg-green-100 text-green-800",
-  closed: "bg-gray-100 text-gray-600",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  new: "New",
-  in_progress: "In Progress",
-  quoted: "Quoted",
-  closed: "Closed",
-};
+import { INQUIRY_STATUS_COLORS, INQUIRY_STATUS_LABELS } from "@/lib/status";
 
 export default function Inquiries() {
   const [, setLocation] = useLocation();
@@ -205,10 +193,10 @@ export default function Inquiries() {
                   <div className="flex items-center gap-3">
                     <span
                       className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                        STATUS_COLORS[inq.status] ?? "bg-gray-100"
+                        INQUIRY_STATUS_COLORS[inq.status] ?? "bg-gray-100"
                       }`}
                     >
-                      {STATUS_LABELS[inq.status] ?? inq.status}
+                      {INQUIRY_STATUS_LABELS[inq.status] ?? inq.status}
                     </span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>

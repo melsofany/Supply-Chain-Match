@@ -13,23 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  pending_finance: "bg-yellow-100 text-yellow-800",
-  finance_approved: "bg-blue-100 text-blue-700",
-  delivered: "bg-purple-100 text-purple-700",
-  signed: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  pending_finance: "بانتظار المالية",
-  finance_approved: "معتمد مالياً",
-  delivered: "تم التسليم",
-  signed: "موقع",
-  cancelled: "ملغي",
-};
+import { DELIVERY_NOTE_STATUS_COLORS, DELIVERY_NOTE_STATUS_LABELS } from "@/lib/status";
 
 const STATUS_ICONS: Record<string, React.ReactNode> = {
   draft: <Clock className="h-4 w-4" />,
@@ -113,8 +97,8 @@ export default function DeliveryNotes() {
                       {dn.invoice.invoiceNumber}
                     </span>
                   )}
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[dn.status] ?? ""}`}>
-                    {STATUS_LABELS[dn.status] ?? dn.status}
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${DELIVERY_NOTE_STATUS_COLORS[dn.status] ?? ""}`}>
+                    {DELIVERY_NOTE_STATUS_LABELS[dn.status] ?? dn.status}
                   </span>
                   <span className="text-xs text-muted-foreground">{new Date(dn.createdAt).toLocaleDateString("ar-EG")}</span>
                 </div>

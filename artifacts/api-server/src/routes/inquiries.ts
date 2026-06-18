@@ -15,6 +15,7 @@ import {
   UpdateInquiryItemResponse,
   DeleteInquiryItemParams,
 } from "@workspace/api-zod";
+import { validate } from "../lib/route-helpers";
 
 const router: IRouter = Router();
 
@@ -42,10 +43,7 @@ async function buildInquiryWithItems(id: number) {
 
   return {
     ...inquiry,
-    items: items.map((item) => ({
-      ...item,
-      quantity: Number(item.quantity),
-    })),
+    items: items.map((item) => ({ ...item, quantity: Number(item.quantity) })),
   };
 }
 
@@ -77,123 +75,68 @@ router.get("/inquiries", async (req, res): Promise<void> => {
 });
 
 router.post("/inquiries", async (req, res): Promise<void> => {
-  const parsed = CreateInquiryBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const [inquiry] = await db.insert(inquiriesTable).values(parsed.data).returning();
+  const data = validate(CreateInquiryBody, req.body);
+  const [inquiry] = await db.insert(inquiriesTable).values(data).returning();
   res.status(201).json({ ...inquiry });
 });
 
 router.get("/inquiries/:id", async (req, res): Promise<void> => {
-  const params = GetInquiryParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const result = await buildInquiryWithItems(params.data.id);
-  if (!result) {
-    res.status(404).json({ error: "Inquiry not found" });
-    return;
-  }
+  const { id } = validate(GetInquiryParams, req.params);
+  const result = await buildInquiryWithItems(id);
+  if (!result) { res.status(404).json({ error: "Inquiry not found" }); return; }
   res.json(result);
 });
 
 router.patch("/inquiries/:id", async (req, res): Promise<void> => {
-  const params = UpdateInquiryParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = UpdateInquiryBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
+  const { id } = validate(UpdateInquiryParams, req.params);
+  const data = validate(UpdateInquiryBody, req.body);
   const [inquiry] = await db
     .update(inquiriesTable)
-    .set(parsed.data)
-    .where(eq(inquiriesTable.id, params.data.id))
+    .set(data)
+    .where(eq(inquiriesTable.id, id))
     .returning();
-  if (!inquiry) {
-    res.status(404).json({ error: "Inquiry not found" });
-    return;
-  }
+  if (!inquiry) { res.status(404).json({ error: "Inquiry not found" }); return; }
   res.json(UpdateInquiryResponse.parse(inquiry));
 });
 
 router.delete("/inquiries/:id", async (req, res): Promise<void> => {
-  const params = DeleteInquiryParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  await db.delete(inquiryItemsTable).where(eq(inquiryItemsTable.inquiryId, params.data.id));
-  const [inquiry] = await db.delete(inquiriesTable).where(eq(inquiriesTable.id, params.data.id)).returning();
-  if (!inquiry) {
-    res.status(404).json({ error: "Inquiry not found" });
-    return;
-  }
+  const { id } = validate(DeleteInquiryParams, req.params);
+  await db.delete(inquiryItemsTable).where(eq(inquiryItemsTable.inquiryId, id));
+  const [inquiry] = await db.delete(inquiriesTable).where(eq(inquiriesTable.id, id)).returning();
+  if (!inquiry) { res.status(404).json({ error: "Inquiry not found" }); return; }
   res.sendStatus(204);
 });
 
 router.post("/inquiries/:id/items", async (req, res): Promise<void> => {
-  const params = AddInquiryItemParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = AddInquiryItemBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const itemIns: any = { ...parsed.data, inquiryId: params.data.id };
+  const { id } = validate(AddInquiryItemParams, req.params);
+  const data = validate(AddInquiryItemBody, req.body);
+  const itemIns: any = { ...data, inquiryId: id };
   if (itemIns.quantity != null) itemIns.quantity = String(itemIns.quantity);
   const [item] = await db.insert(inquiryItemsTable).values(itemIns).returning();
   res.status(201).json({ ...item, quantity: Number(item.quantity) });
 });
 
 router.patch("/inquiries/:id/items/:itemId", async (req, res): Promise<void> => {
-  const params = UpdateInquiryItemParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
-  const parsed = UpdateInquiryItemBody.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
-  }
-  const itemUpd: any = { ...parsed.data };
+  const { itemId } = validate(UpdateInquiryItemParams, req.params);
+  const data = validate(UpdateInquiryItemBody, req.body);
+  const itemUpd: any = { ...data };
   if (itemUpd.quantity != null) itemUpd.quantity = String(itemUpd.quantity);
   const [item] = await db
     .update(inquiryItemsTable)
     .set(itemUpd)
-    .where(eq(inquiryItemsTable.id, params.data.itemId))
+    .where(eq(inquiryItemsTable.id, itemId))
     .returning();
-  if (!item) {
-    res.status(404).json({ error: "Inquiry item not found" });
-    return;
-  }
+  if (!item) { res.status(404).json({ error: "Inquiry item not found" }); return; }
   res.json(UpdateInquiryItemResponse.parse({ ...item, quantity: Number(item.quantity) }));
 });
 
 router.delete("/inquiries/:id/items/:itemId", async (req, res): Promise<void> => {
-  const params = DeleteInquiryItemParams.safeParse(req.params);
-  if (!params.success) {
-    res.status(400).json({ error: params.error.message });
-    return;
-  }
+  const { itemId } = validate(DeleteInquiryItemParams, req.params);
   const [item] = await db
     .delete(inquiryItemsTable)
-    .where(eq(inquiryItemsTable.id, params.data.itemId))
+    .where(eq(inquiryItemsTable.id, itemId))
     .returning();
-  if (!item) {
-    res.status(404).json({ error: "Inquiry item not found" });
-    return;
-  }
+  if (!item) { res.status(404).json({ error: "Inquiry item not found" }); return; }
   res.sendStatus(204);
 });
 

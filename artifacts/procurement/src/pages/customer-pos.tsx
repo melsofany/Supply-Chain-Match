@@ -23,12 +23,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-const STATUS_COLORS: Record<string, string> = {
-  received: "bg-blue-100 text-blue-700",
-  processing: "bg-yellow-100 text-yellow-700",
-  fulfilled: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
+import { CUSTOMER_PO_STATUS_COLORS } from "@/lib/status";
 
 export default function CustomerPos() {
   const [, setLocation] = useLocation();
@@ -147,7 +142,7 @@ export default function CustomerPos() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${STATUS_COLORS[po.status] ?? ""}`}>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${CUSTOMER_PO_STATUS_COLORS[po.status] ?? ""}`}>
                       {po.status}
                     </span>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />

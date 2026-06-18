@@ -21,21 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 
-const STATUS_COLORS: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700",
-  sent: "bg-blue-100 text-blue-700",
-  confirmed: "bg-yellow-100 text-yellow-700",
-  delivered: "bg-green-100 text-green-800",
-  cancelled: "bg-red-100 text-red-700",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "مسودة",
-  sent: "مُرسل",
-  confirmed: "مُؤكد",
-  delivered: "مُسلَّم",
-  cancelled: "ملغي",
-};
+import { SUPPLIER_PO_STATUS_COLORS, SUPPLIER_PO_STATUS_LABELS } from "@/lib/status";
 
 const fmt = (n: number) =>
   n.toLocaleString("ar-EG", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -175,8 +161,8 @@ export default function SupplierPoDetail() {
             )}
           </p>
         </div>
-        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_COLORS[po.status] ?? ""}`}>
-          {STATUS_LABELS[po.status] ?? po.status}
+        <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${SUPPLIER_PO_STATUS_COLORS[po.status] ?? ""}`}>
+          {SUPPLIER_PO_STATUS_LABELS[po.status] ?? po.status}
         </span>
       </div>
 
