@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, Users, Building2, FileQuestion, FileText,
   ShoppingCart, Truck, Menu, Calculator, FileCheck, ReceiptText,
-  BarChart3, ShieldCheck, LogOut, ChevronDown, Bell, Search,
+  BarChart3, ShieldCheck, LogOut, ChevronDown, Bell, Search, MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -27,6 +27,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/invoices",       label: "الفواتير",              icon: ReceiptText },
   { href: "/reports",        label: "التقارير",              icon: BarChart3 },
   { href: "/accounting",     label: "المحاسبة",              icon: Calculator },
+  { href: "/whatsapp-chats", label: "محادثات واتساب",        icon: MessageCircle },
   { href: "/users",          label: "المستخدمون",            icon: ShieldCheck, adminOnly: true },
 ];
 

@@ -17,10 +17,12 @@ import deliveryNotesRouter from "./delivery-notes";
 import invoicesRouter from "./invoices";
 import reportsRouter from "./reports";
 import whatsappWebhookRouter from "./whatsapp-webhook";
+import whatsappChatsRouter from "./whatsapp-chats";
 
 const router: IRouter = Router();
 
 router.use(whatsappWebhookRouter);
+router.use(whatsappChatsRouter);
 router.use(healthRouter);
 router.use(authRouter);
 router.use(usersRouter);

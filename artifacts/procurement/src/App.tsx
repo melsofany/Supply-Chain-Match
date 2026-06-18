@@ -27,6 +27,7 @@ import InvoiceDetail from "@/pages/invoice-detail";
 import Reports from "@/pages/reports";
 import UsersPage from "@/pages/users";
 import SupplierPortal from "@/pages/supplier-portal";
+import WhatsAppChats from "@/pages/whatsapp-chats";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ function AuthenticatedApp() {
         <Route path="/reports" component={Reports} />
         <Route path="/accounting" component={Accounting} />
         <Route path="/users" component={UsersPage} />
+        <Route path="/whatsapp-chats" component={WhatsAppChats} />
         <Route component={NotFound} />
       </Switch>
     </Shell>
