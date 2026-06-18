@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MessageCircle, Send, User, Building2, HelpCircle, Search, CheckCheck, Phone } from "lucide-react";
+import {
+  MessageCircle, Send, User, Building2, HelpCircle,
+  Search, CheckCheck, Phone, ArrowRight,
+} from "lucide-react";
 import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,12 +33,11 @@ interface WaMessage {
 }
 
 function timeAgo(dateStr: string): string {
-  const d = new Date(dateStr);
-  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
   if (diff < 60) return "الآن";
   if (diff < 3600) return `${Math.floor(diff / 60)} د`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} س`;
-  return d.toLocaleDateString("ar-EG");
+  return new Date(dateStr).toLocaleDateString("ar-EG");
 }
 
 function typeIcon(type: string | null) {
@@ -110,6 +112,11 @@ export default function WhatsAppChats() {
     markRead.mutate(phone);
   }
 
+  function handleBack() {
+    setSelectedPhone(null);
+    setReplyText("");
+  }
+
   function handleSend() {
     if (!selectedPhone || !replyText.trim()) return;
     sendMutation.mutate({ phone: selectedPhone, body: replyText.trim() });
@@ -126,11 +133,23 @@ export default function WhatsAppChats() {
 
   const selectedChat = chats.find((c) => c.phone === selectedPhone);
 
+  // على الموبايل: عند اختيار محادثة تختفي القائمة وتظهر نافذة الشات
+  const showList = !selectedPhone;
+  const showChat = !!selectedPhone && !!selectedChat;
+
   return (
     <div className="h-[calc(100vh-4rem)] flex overflow-hidden" dir="rtl">
 
       {/* ── Sidebar: قائمة المحادثات ─────────────────────────────────────── */}
-      <div className="w-80 shrink-0 border-l flex flex-col bg-white">
+      {/* على الموبايل: تظهر فقط عند عدم اختيار محادثة */}
+      <div
+        className={`
+          flex flex-col bg-white border-l
+          w-full md:w-72 lg:w-80 md:shrink-0
+          ${showList ? "flex" : "hidden md:flex"}
+        `}
+      >
+        {/* Header */}
         <div className="p-4 border-b bg-[#1a2a3a]">
           <div className="flex items-center gap-2 mb-3">
             <MessageCircle className="h-5 w-5 text-green-400" />
@@ -147,6 +166,7 @@ export default function WhatsAppChats() {
           </div>
         </div>
 
+        {/* Chat List */}
         <div className="flex-1 overflow-y-auto">
           {chatsLoading ? (
             <div className="p-3 space-y-2">
@@ -167,7 +187,7 @@ export default function WhatsAppChats() {
                   key={chat.phone}
                   onClick={() => selectChat(chat.phone)}
                   className={`w-full text-right px-4 py-3 border-b transition-colors flex items-start gap-3 ${
-                    isActive ? "bg-blue-50 border-l-2 border-l-blue-500" : "hover:bg-slate-50"
+                    isActive ? "bg-blue-50 border-l-2 border-l-blue-500" : "hover:bg-slate-50 active:bg-slate-100"
                   }`}
                 >
                   <div className={`h-10 w-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white ${avatarBg(chat.contact_type)}`}>
@@ -201,29 +221,45 @@ export default function WhatsAppChats() {
       </div>
 
       {/* ── Main: نافذة المحادثة ─────────────────────────────────────────── */}
-      {selectedPhone && selectedChat ? (
-        <div className="flex-1 flex flex-col min-w-0 bg-[#f0f2f5]">
+      {/* على الموبايل: تظهر فقط عند اختيار محادثة وتملأ الشاشة بالكامل */}
+      {showChat ? (
+        <div
+          className={`
+            flex flex-col min-w-0 bg-[#f0f2f5]
+            w-full md:flex-1
+            ${showChat ? "flex" : "hidden md:flex"}
+          `}
+        >
           {/* Chat header */}
-          <div className="px-5 py-3 bg-white border-b flex items-center gap-3 shadow-sm">
-            <div className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white ${avatarBg(selectedChat.contact_type)}`}>
+          <div className="px-4 py-3 bg-white border-b flex items-center gap-3 shadow-sm">
+            {/* زر الرجوع — يظهر فقط على الموبايل */}
+            <button
+              onClick={handleBack}
+              className="md:hidden p-1.5 rounded-full hover:bg-slate-100 active:bg-slate-200 transition-colors"
+              aria-label="رجوع"
+            >
+              <ArrowRight className="h-5 w-5 text-slate-600" />
+            </button>
+
+            <div className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${avatarBg(selectedChat.contact_type)}`}>
               {((selectedChat.contact_name ?? selectedChat.phone).charAt(0) || "?").toUpperCase()}
             </div>
-            <div>
-              <p className="font-semibold text-sm text-slate-800">
+            <div className="min-w-0">
+              <p className="font-semibold text-sm text-slate-800 truncate">
                 {selectedChat.contact_name ?? selectedChat.phone}
               </p>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {typeIcon(selectedChat.contact_type)}
                 <span className="text-xs text-slate-500">{typeLabel(selectedChat.contact_type)}</span>
-                <span className="text-slate-300">·</span>
-                <Phone className="h-3 w-3 text-slate-400" />
-                <span className="text-xs text-slate-400 font-mono">{selectedChat.phone}</span>
+                <span className="text-slate-300 hidden sm:inline">·</span>
+                <Phone className="h-3 w-3 text-slate-400 hidden sm:inline" />
+                <span className="text-xs text-slate-400 font-mono hidden sm:inline">{selectedChat.phone}</span>
               </div>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+          <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 space-y-2">
             {msgsLoading ? (
               <div className="space-y-3">
                 {[...Array(4)].map((_, i) => (
@@ -238,13 +274,11 @@ export default function WhatsAppChats() {
               </div>
             ) : (
               messages.map((msg) => {
-                // outbound = رسائلنا نحن = يمين + أخضر
-                // inbound  = رسائل العميل/المورد = يسار + أبيض
                 const isOut = msg.direction === "outbound";
                 return (
                   <div key={msg.id} className={`flex ${isOut ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[70%] px-3.5 py-2 rounded-2xl text-sm shadow-sm ${
+                      className={`max-w-[80%] sm:max-w-[70%] px-3.5 py-2 rounded-2xl text-sm shadow-sm ${
                         isOut
                           ? "bg-[#dcf8c6] text-slate-800 rounded-tl-sm"
                           : "bg-white text-slate-800 rounded-tr-sm"
@@ -267,7 +301,7 @@ export default function WhatsAppChats() {
           </div>
 
           {/* Reply input */}
-          <div className="px-4 py-3 bg-white border-t flex items-center gap-2">
+          <div className="px-3 sm:px-4 py-3 bg-white border-t flex items-center gap-2">
             <Input
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
@@ -288,7 +322,8 @@ export default function WhatsAppChats() {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center bg-[#f0f2f5] text-slate-400">
+        /* حالة الـ desktop عند عدم اختيار محادثة */
+        <div className="hidden md:flex flex-1 flex-col items-center justify-center bg-[#f0f2f5] text-slate-400">
           <div className="bg-white rounded-full p-6 mb-4 shadow-sm">
             <MessageCircle className="h-12 w-12 text-green-400" />
           </div>
