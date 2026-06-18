@@ -51,7 +51,13 @@ export async function initLedger() {
     autoMigrate: false,
   } as any);
 
-  await migrate(adapter as any);
+  try {
+    await migrate(adapter as any);
+  } catch (err: any) {
+    // PostgreSQL error 42P07 = "relation already exists" — migrations already applied, safe to continue
+    if (err?.code !== "42P07") throw err;
+    logger.warn("LedgerStack migrate: index/table already exists, skipping (already migrated)");
+  }
 
   const ensured = await ensureCompanyAndYear(adapter);
   currentYearId = ensured.yearId;
