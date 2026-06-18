@@ -16,9 +16,11 @@ import portalRouter from "./portal";
 import deliveryNotesRouter from "./delivery-notes";
 import invoicesRouter from "./invoices";
 import reportsRouter from "./reports";
+import whatsappWebhookRouter from "./whatsapp-webhook";
 
 const router: IRouter = Router();
 
+router.use(whatsappWebhookRouter);
 router.use(healthRouter);
 router.use(authRouter);
 router.use(usersRouter);

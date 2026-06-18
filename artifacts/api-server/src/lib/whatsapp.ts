@@ -133,6 +133,15 @@ export async function sendPoWhatsApp(opts: WhatsAppPoOptions): Promise<void> {
   logger.info({ phone: opts.phone, poNumber: opts.poNumber }, "WhatsApp PO sent");
 }
 
+export async function sendTextMessage(phone: string, body: string): Promise<void> {
+  await sendMessage({
+    messaging_product: "whatsapp",
+    to: sanitizePhone(phone),
+    type: "text",
+    text: { preview_url: false, body },
+  });
+}
+
 export async function verifyWhatsAppConfig(): Promise<{ ok: boolean; error?: string }> {
   try {
     const { phoneNumberId, accessToken, apiVersion } = getConfig();
