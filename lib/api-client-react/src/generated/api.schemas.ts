@@ -111,6 +111,16 @@ export interface InquiryItem {
   id: number;
   inquiryId: number;
   description: string;
+  /**
+     * رقم القطعة لدى المصنع (Manufacturer Part Number)
+     * @nullable
+     */
+  partNo?: string | null;
+  /**
+     * الكود الداخلي للمنتج لدى العميل
+     * @nullable
+     */
+  customerInternalCode?: string | null;
   quantity: number;
   /** @nullable */
   unit?: string | null;
@@ -133,9 +143,24 @@ export interface InquiryWithItems {
   customerId: number;
   /** @nullable */
   customerName?: string | null;
+  /**
+     * رقم الطلب
+     * @nullable
+     */
+  inquiryNumber?: string | null;
   title: string;
   /** @nullable */
   description?: string | null;
+  /**
+     * اسم المشتري / الموظف المسؤل لدى العميل
+     * @nullable
+     */
+  buyerName?: string | null;
+  /**
+     * آخر تاريخ للرد على الطلب
+     * @nullable
+     */
+  replyDeadline?: string | null;
   status: InquiryWithItemsStatus;
   createdAt: string;
   items: InquiryItem[];
@@ -153,9 +178,12 @@ export const InquiryInputStatus = {
 
 export interface InquiryInput {
   customerId: number;
+  inquiryNumber?: string;
   /** @minLength 1 */
   title: string;
   description?: string;
+  buyerName?: string;
+  replyDeadline?: string;
   status?: InquiryInputStatus;
 }
 
@@ -170,15 +198,20 @@ export const InquiryUpdateStatus = {
 } as const;
 
 export interface InquiryUpdate {
+  inquiryNumber?: string;
   /** @minLength 1 */
   title?: string;
   description?: string;
+  buyerName?: string;
+  replyDeadline?: string;
   status?: InquiryUpdateStatus;
 }
 
 export interface InquiryItemInput {
   /** @minLength 1 */
   description: string;
+  partNo?: string;
+  customerInternalCode?: string;
   quantity: number;
   unit?: string;
   notes?: string;
@@ -187,6 +220,8 @@ export interface InquiryItemInput {
 export interface InquiryItemUpdate {
   /** @minLength 1 */
   description?: string;
+  partNo?: string;
+  customerInternalCode?: string;
   quantity?: number;
   unit?: string;
   notes?: string;

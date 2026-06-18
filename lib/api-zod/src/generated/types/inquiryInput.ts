@@ -9,8 +9,11 @@ import type { InquiryInputStatus } from './inquiryInputStatus';
 
 export interface InquiryInput {
   customerId: number;
+  inquiryNumber?: string;
   /** @minLength 1 */
   title: string;
   description?: string;
+  buyerName?: string;
+  replyDeadline?: string;
   status?: InquiryInputStatus;
 }

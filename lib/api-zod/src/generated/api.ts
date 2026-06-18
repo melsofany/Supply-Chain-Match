@@ -208,14 +208,19 @@ export const ListInquiriesResponseItem = zod.object({
   "id": zod.number(),
   "customerId": zod.number(),
   "customerName": zod.string().nullish(),
+  "inquiryNumber": zod.string().nullish().describe('رقم الطلب'),
   "title": zod.string(),
   "description": zod.string().nullish(),
+  "buyerName": zod.string().nullish().describe('اسم المشتري \/ الموظف المسؤل لدى العميل'),
+  "replyDeadline": zod.string().nullish().describe('آخر تاريخ للرد على الطلب'),
   "status": zod.enum(['new', 'in_progress', 'quoted', 'closed']),
   "createdAt": zod.coerce.date(),
   "items": zod.array(zod.object({
   "id": zod.number(),
   "inquiryId": zod.number(),
   "description": zod.string(),
+  "partNo": zod.string().nullish().describe('رقم القطعة لدى المصنع (Manufacturer Part Number)'),
+  "customerInternalCode": zod.string().nullish().describe('الكود الداخلي للمنتج لدى العميل'),
   "quantity": zod.number(),
   "unit": zod.string().nullish(),
   "notes": zod.string().nullish()
@@ -232,8 +237,11 @@ export const ListInquiriesResponse = zod.array(ListInquiriesResponseItem)
 
 export const CreateInquiryBody = zod.object({
   "customerId": zod.number(),
+  "inquiryNumber": zod.string().optional(),
   "title": zod.string().min(1),
   "description": zod.string().optional(),
+  "buyerName": zod.string().optional(),
+  "replyDeadline": zod.string().optional(),
   "status": zod.enum(['new', 'in_progress', 'quoted', 'closed']).optional()
 })
 
@@ -249,14 +257,19 @@ export const GetInquiryResponse = zod.object({
   "id": zod.number(),
   "customerId": zod.number(),
   "customerName": zod.string().nullish(),
+  "inquiryNumber": zod.string().nullish().describe('رقم الطلب'),
   "title": zod.string(),
   "description": zod.string().nullish(),
+  "buyerName": zod.string().nullish().describe('اسم المشتري \/ الموظف المسؤل لدى العميل'),
+  "replyDeadline": zod.string().nullish().describe('آخر تاريخ للرد على الطلب'),
   "status": zod.enum(['new', 'in_progress', 'quoted', 'closed']),
   "createdAt": zod.coerce.date(),
   "items": zod.array(zod.object({
   "id": zod.number(),
   "inquiryId": zod.number(),
   "description": zod.string(),
+  "partNo": zod.string().nullish().describe('رقم القطعة لدى المصنع (Manufacturer Part Number)'),
+  "customerInternalCode": zod.string().nullish().describe('الكود الداخلي للمنتج لدى العميل'),
   "quantity": zod.number(),
   "unit": zod.string().nullish(),
   "notes": zod.string().nullish()
@@ -275,8 +288,11 @@ export const UpdateInquiryParams = zod.object({
 
 
 export const UpdateInquiryBody = zod.object({
+  "inquiryNumber": zod.string().optional(),
   "title": zod.string().min(1).optional(),
   "description": zod.string().optional(),
+  "buyerName": zod.string().optional(),
+  "replyDeadline": zod.string().optional(),
   "status": zod.enum(['new', 'in_progress', 'quoted', 'closed']).optional()
 })
 
@@ -311,6 +327,8 @@ export const AddInquiryItemParams = zod.object({
 
 export const AddInquiryItemBody = zod.object({
   "description": zod.string().min(1),
+  "partNo": zod.string().optional(),
+  "customerInternalCode": zod.string().optional(),
   "quantity": zod.number(),
   "unit": zod.string().optional(),
   "notes": zod.string().optional()
@@ -330,6 +348,8 @@ export const UpdateInquiryItemParams = zod.object({
 
 export const UpdateInquiryItemBody = zod.object({
   "description": zod.string().min(1).optional(),
+  "partNo": zod.string().optional(),
+  "customerInternalCode": zod.string().optional(),
   "quantity": zod.number().optional(),
   "unit": zod.string().optional(),
   "notes": zod.string().optional()
@@ -339,6 +359,8 @@ export const UpdateInquiryItemResponse = zod.object({
   "id": zod.number(),
   "inquiryId": zod.number(),
   "description": zod.string(),
+  "partNo": zod.string().nullish().describe('رقم القطعة لدى المصنع (Manufacturer Part Number)'),
+  "customerInternalCode": zod.string().nullish().describe('الكود الداخلي للمنتج لدى العميل'),
   "quantity": zod.number(),
   "unit": zod.string().nullish(),
   "notes": zod.string().nullish()

@@ -9,6 +9,8 @@
 export interface InquiryItemInput {
   /** @minLength 1 */
   description: string;
+  partNo?: string;
+  customerInternalCode?: string;
   quantity: number;
   unit?: string;
   notes?: string;

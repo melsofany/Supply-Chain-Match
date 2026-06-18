@@ -10,6 +10,16 @@ export interface InquiryItem {
   id: number;
   inquiryId: number;
   description: string;
+  /**
+     * رقم القطعة لدى المصنع (Manufacturer Part Number)
+     * @nullable
+     */
+  partNo?: string | null;
+  /**
+     * الكود الداخلي للمنتج لدى العميل
+     * @nullable
+     */
+  customerInternalCode?: string | null;
   quantity: number;
   /** @nullable */
   unit?: string | null;

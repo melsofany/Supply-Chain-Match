@@ -8,8 +8,11 @@
 import type { InquiryUpdateStatus } from './inquiryUpdateStatus';
 
 export interface InquiryUpdate {
+  inquiryNumber?: string;
   /** @minLength 1 */
   title?: string;
   description?: string;
+  buyerName?: string;
+  replyDeadline?: string;
   status?: InquiryUpdateStatus;
 }

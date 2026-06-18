@@ -25,8 +25,11 @@ async function buildInquiryWithItems(id: number) {
       id: inquiriesTable.id,
       customerId: inquiriesTable.customerId,
       customerName: customersTable.name,
+      inquiryNumber: inquiriesTable.inquiryNumber,
       title: inquiriesTable.title,
       description: inquiriesTable.description,
+      buyerName: inquiriesTable.buyerName,
+      replyDeadline: inquiriesTable.replyDeadline,
       status: inquiriesTable.status,
       createdAt: inquiriesTable.createdAt,
     })
@@ -53,8 +56,11 @@ router.get("/inquiries", async (req, res): Promise<void> => {
       id: inquiriesTable.id,
       customerId: inquiriesTable.customerId,
       customerName: customersTable.name,
+      inquiryNumber: inquiriesTable.inquiryNumber,
       title: inquiriesTable.title,
       description: inquiriesTable.description,
+      buyerName: inquiriesTable.buyerName,
+      replyDeadline: inquiriesTable.replyDeadline,
       status: inquiriesTable.status,
       createdAt: inquiriesTable.createdAt,
     })

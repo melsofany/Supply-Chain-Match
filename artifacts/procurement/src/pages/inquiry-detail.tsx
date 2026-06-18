@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Plus, Pencil, Trash2, FileText, Send, CheckCircle, Clock, XCircle, Table2, Star, Mail, Eye, Link2, Copy, Download } from "lucide-react";
+import {
+  ArrowLeft, Plus, Pencil, Trash2, FileText, Send, CheckCircle,
+  Clock, XCircle, Table2, Star, Mail, Eye, Link2, Copy, Download, User, Hash, Tag,
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetInquiry,
@@ -19,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -41,26 +45,19 @@ import {
   useUpsertRfqItems,
   useCreateQuotationFromRfqs,
   type SupplierRfq,
-  type RfqComparisonItem,
 } from "@/hooks/use-supplier-rfqs";
-
-import { INQUIRY_STATUS_COLORS } from "@/lib/status";
+import { INQUIRY_STATUS_COLORS, INQUIRY_STATUS_LABELS } from "@/lib/status";
 
 const RFQ_STATUS_CONFIG: Record<string, { color: string; label: string; icon: React.ReactNode }> = {
-  pending: { color: "bg-gray-100 text-gray-600", label: "معلق", icon: <Clock className="h-3.5 w-3.5" /> },
-  sent: { color: "bg-blue-100 text-blue-700", label: "أُرسل", icon: <Send className="h-3.5 w-3.5" /> },
+  pending:  { color: "bg-gray-100 text-gray-600",   label: "معلق",        icon: <Clock       className="h-3.5 w-3.5" /> },
+  sent:     { color: "bg-blue-100 text-blue-700",   label: "أُرسل",       icon: <Send        className="h-3.5 w-3.5" /> },
   received: { color: "bg-green-100 text-green-700", label: "استُلم الرد", icon: <CheckCircle className="h-3.5 w-3.5" /> },
-  cancelled: { color: "bg-red-100 text-red-700", label: "ملغي", icon: <XCircle className="h-3.5 w-3.5" /> },
+  cancelled:{ color: "bg-red-100 text-red-700",     label: "ملغي",        icon: <XCircle     className="h-3.5 w-3.5" /> },
 };
 
+/* ─────────────────────── RFQ card ─────────────────────── */
 function RfqCard({
-  rfq,
-  onEdit,
-  onDelete,
-  onEnterPrices,
-  onSendEmail,
-  onGenerateLink,
-  isSendingEmail,
+  rfq, onEdit, onDelete, onEnterPrices, onSendEmail, onGenerateLink, isSendingEmail,
 }: {
   rfq: SupplierRfq;
   onEdit: (rfq: SupplierRfq) => void;
@@ -93,7 +90,7 @@ function RfqCard({
 
   const linkBadge = rfq.token
     ? rfq.linkOpened
-      ? <span className="text-[10px] text-blue-600 flex items-center gap-0.5"><Eye className="h-3 w-3" />فُتح {rfq.openCount > 1 ? `(${rfq.openCount})` : ""}</span>
+      ? <span className="text-[10px] text-blue-600 flex items-center gap-0.5"><Eye className="h-3 w-3" />فُتح{rfq.openCount > 1 ? ` (${rfq.openCount})` : ""}</span>
       : <span className="text-[10px] text-gray-400 flex items-center gap-0.5"><Eye className="h-3 w-3" />لم يُفتح</span>
     : null;
 
@@ -119,12 +116,9 @@ function RfqCard({
               }
               {rfq.closeDate && <span className="mr-2 text-amber-600">• آخر موعد: {rfq.closeDate}</span>}
             </p>
-            {/* Tracking badges */}
             {(emailBadge || linkBadge || offerBadge) && (
               <div className="flex items-center gap-2 mt-1">
-                {emailBadge}
-                {linkBadge}
-                {offerBadge}
+                {emailBadge}{linkBadge}{offerBadge}
               </div>
             )}
           </div>
@@ -133,69 +127,42 @@ function RfqCard({
           {rfq.status !== "cancelled" && (
             <>
               {rfq.supplierEmail && rfq.emailStatus !== "sent" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs gap-1"
-                  onClick={() => onSendEmail(rfq)}
-                  disabled={isSendingEmail}
-                  title="إرسال رابط التسعير بالإيميل"
-                >
-                  <Mail className="h-3 w-3" />
-                  إيميل
+                <Button variant="outline" size="sm" className="h-7 text-xs gap-1"
+                  onClick={() => onSendEmail(rfq)} disabled={isSendingEmail} title="إرسال بالإيميل">
+                  <Mail className="h-3 w-3" />إيميل
                 </Button>
               )}
               {rfq.emailStatus === "sent" && rfq.token && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs gap-1 text-muted-foreground"
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground"
                   onClick={() => {
                     const base = window.location.origin + (import.meta.env.BASE_URL || "").replace(/\/$/, "");
-                    const url = `${base}/portal/${rfq.token}`;
-                    navigator.clipboard.writeText(url);
-                  }}
-                  title="نسخ رابط البوابة"
-                >
+                    navigator.clipboard.writeText(`${base}/portal/${rfq.token}`);
+                  }} title="نسخ رابط البوابة">
                   <Copy className="h-3 w-3" />
                 </Button>
               )}
               {!rfq.token && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-xs gap-1 text-muted-foreground"
-                  onClick={() => onGenerateLink(rfq)}
-                  title="توليد رابط بوابة المورد"
-                >
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 text-muted-foreground"
+                  onClick={() => onGenerateLink(rfq)} title="توليد رابط بوابة المورد">
                   <Link2 className="h-3 w-3" />
                 </Button>
               )}
             </>
           )}
           {(rfq.status === "sent" || rfq.status === "received") && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => onEnterPrices(rfq)}
-            >
+            <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => onEnterPrices(rfq)}>
               أسعار البنود
             </Button>
           )}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-muted-foreground hover:text-blue-600"
-            title="تحميل PDF"
-            onClick={downloadPdf}
-          >
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-blue-600"
+            title="تحميل PDF" onClick={downloadPdf}>
             <Download className="h-3.5 w-3.5" />
           </Button>
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(rfq)}>
             <Pencil className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => onDelete(rfq.id)}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
+            onClick={() => onDelete(rfq.id)}>
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -204,6 +171,7 @@ function RfqCard({
   );
 }
 
+/* ═══════════════════════ MAIN PAGE ═══════════════════════ */
 export default function InquiryDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
@@ -215,41 +183,46 @@ export default function InquiryDetail() {
     query: { enabled: !!numId, queryKey: getGetInquiryQueryKey(numId) },
   });
   const { data: suppliers } = useListSuppliers({ query: { queryKey: getListSuppliersQueryKey() } });
-  const updateInquiry = useUpdateInquiry();
-  const addItem = useAddInquiryItem();
-  const updateItem = useUpdateInquiryItem();
-  const deleteItem = useDeleteInquiryItem();
+  const updateInquiry  = useUpdateInquiry();
+  const addItem        = useAddInquiryItem();
+  const updateItem     = useUpdateInquiryItem();
+  const deleteItem     = useDeleteInquiryItem();
   const createQuotation = useCreateQuotation();
 
-  // RFQ state
+  /* ── RFQ hooks ── */
   const { data: rfqs, isLoading: isLoadingRfqs, refetch: refetchRfqs } = useSupplierRfqsByInquiry(numId);
   const { data: comparison, refetch: refetchComparison } = useRfqComparison(numId);
   const { create: createRfq, isCreating: isCreatingRfq } = useCreateSupplierRfq(() => {
-    refetchRfqs();
-    refetchComparison();
+    refetchRfqs(); refetchComparison();
   });
 
-  // Inquiry item dialog
+  /* ── Edit header dialog ── */
+  const [editHeaderOpen, setEditHeaderOpen] = useState(false);
+  const [headerForm, setHeaderForm] = useState({ inquiryNumber: "", buyerName: "", replyDeadline: "", title: "", description: "" });
+
+  /* ── Item dialog ── */
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [editingItemId, setEditingItemId] = useState<number | null>(null);
-  const [itemForm, setItemForm] = useState({ description: "", quantity: "", unit: "", notes: "" });
+  const [itemForm, setItemForm] = useState({
+    description: "", partNo: "", customerInternalCode: "", quantity: "", unit: "", notes: "",
+  });
   const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
 
-  // RFQ dialog
+  /* ── RFQ dialog ── */
   const [rfqDialogOpen, setRfqDialogOpen] = useState(false);
   const [editingRfq, setEditingRfq] = useState<SupplierRfq | null>(null);
   const [rfqForm, setRfqForm] = useState({ supplierId: "", rfqNumber: "", quotedPrice: "", status: "pending", notes: "" });
   const [rfqDeleteId, setRfqDeleteId] = useState<number | null>(null);
 
-  // Per-item price dialog
+  /* ── Per-item price dialog ── */
   const [priceDialogRfq, setPriceDialogRfq] = useState<SupplierRfq | null>(null);
-  const [itemPrices, setItemPrices] = useState<Record<number, string>>({}); // inquiryItemId -> price string
+  const [itemPrices, setItemPrices] = useState<Record<number, string>>({});
 
-  // Quotation-from-RFQ dialog
+  /* ── Quotation builder dialog ── */
   const [quotationDialogOpen, setQuotationDialogOpen] = useState(false);
-  const [selectedPrices, setSelectedPrices] = useState<Record<number, { rfqId: number; supplierId: number | null; unitPrice: number } | null>>({}); // inquiryItemId -> selection
+  const [selectedPrices, setSelectedPrices] = useState<Record<number, { rfqId: number; supplierId: number | null; unitPrice: number } | null>>({});
 
-  // Email send dialog
+  /* ── Email dialog ── */
   const [sendEmailDialogRfq, setSendEmailDialogRfq] = useState<SupplierRfq | null>(null);
   const [emailCloseDate, setEmailCloseDate] = useState("");
   const [sendingEmailId, setSendingEmailId] = useState<number | null>(null);
@@ -258,29 +231,59 @@ export default function InquiryDetail() {
     editingRfq?.id ?? 0,
     () => { refetchRfqs(); refetchComparison(); }
   );
-  const { remove: deleteRfqFn, isDeleting } = useDeleteSupplierRfq(() => {
-    refetchRfqs();
-    refetchComparison();
+  const { remove: deleteRfqFn } = useDeleteSupplierRfq(() => {
+    refetchRfqs(); refetchComparison();
   });
-
   const { save: saveItemPrices, isSaving: isSavingPrices } = useUpsertRfqItems(
     priceDialogRfq?.id ?? 0,
     () => { refetchComparison(); }
   );
-
   const { create: createQuotationFromRfqs, isCreating: isCreatingFromRfqs } = useCreateQuotationFromRfqs(numId);
+
+  /* ── Header handlers ── */
+  function openEditHeader() {
+    if (!inquiry) return;
+    setHeaderForm({
+      inquiryNumber: inquiry.inquiryNumber ?? "",
+      buyerName: inquiry.buyerName ?? "",
+      replyDeadline: inquiry.replyDeadline ?? "",
+      title: inquiry.title,
+      description: inquiry.description ?? "",
+    });
+    setEditHeaderOpen(true);
+  }
+
+  function handleSaveHeader() {
+    updateInquiry.mutate(
+      { id: numId, data: { ...headerForm } as any },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) });
+          qc.invalidateQueries({ queryKey: getListInquiriesQueryKey() });
+          setEditHeaderOpen(false);
+          toast({ title: "تم تحديث بيانات الطلب" });
+        },
+      }
+    );
+  }
 
   function handleStatusChange(value: string) {
     updateInquiry.mutate(
       { id: numId, data: { status: value as any } },
-      { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) }); qc.invalidateQueries({ queryKey: getListInquiriesQueryKey() }); toast({ title: "تم تحديث الحالة" }); } }
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) });
+          qc.invalidateQueries({ queryKey: getListInquiriesQueryKey() });
+          toast({ title: "تم تحديث الحالة" });
+        },
+      }
     );
   }
 
-  // ── Inquiry items ──────────────────────────────────────────────────────────
+  /* ── Item handlers ── */
   function openAddItem() {
     setEditingItemId(null);
-    setItemForm({ description: "", quantity: "", unit: "", notes: "" });
+    setItemForm({ description: "", partNo: "", customerInternalCode: "", quantity: "", unit: "", notes: "" });
     setItemDialogOpen(true);
   }
 
@@ -288,6 +291,8 @@ export default function InquiryDetail() {
     setEditingItemId(item.id);
     setItemForm({
       description: item.description,
+      partNo: (item as any).partNo ?? "",
+      customerInternalCode: (item as any).customerInternalCode ?? "",
       quantity: String(item.quantity),
       unit: item.unit ?? "",
       notes: item.notes ?? "",
@@ -300,9 +305,11 @@ export default function InquiryDetail() {
       toast({ title: "الوصف والكمية مطلوبان", variant: "destructive" });
       return;
     }
-    const data = {
+    const data: any = {
       description: itemForm.description,
       quantity: Number(itemForm.quantity),
+      ...(itemForm.partNo && { partNo: itemForm.partNo }),
+      ...(itemForm.customerInternalCode && { customerInternalCode: itemForm.customerInternalCode }),
       ...(itemForm.unit && { unit: itemForm.unit }),
       ...(itemForm.notes && { notes: itemForm.notes }),
     };
@@ -327,7 +334,7 @@ export default function InquiryDetail() {
     );
   }
 
-  // ── Create quotation (empty) from inquiry ─────────────────────────────────
+  /* ── Create quotation (empty) ── */
   function handleCreateQuotation() {
     if (!inquiry) return;
     createQuotation.mutate(
@@ -346,7 +353,7 @@ export default function InquiryDetail() {
     );
   }
 
-  // ── Email sending ──────────────────────────────────────────────────────────
+  /* ── Email ── */
   function openSendEmail(rfq: SupplierRfq) {
     setSendEmailDialogRfq(rfq);
     setEmailCloseDate("");
@@ -358,9 +365,7 @@ export default function InquiryDetail() {
     try {
       const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
       const r = await fetch(`${BASE}/api/supplier-rfqs/${sendEmailDialogRfq.id}/send-email`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ closeDate: emailCloseDate || undefined }),
       });
       const j = await r.json();
@@ -379,9 +384,7 @@ export default function InquiryDetail() {
     try {
       const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
       const r = await fetch(`${BASE}/api/supplier-rfqs/${rfq.id}/generate-link`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({}),
       });
       const j = await r.json();
@@ -394,7 +397,7 @@ export default function InquiryDetail() {
     }
   }
 
-  // ── RFQ management ────────────────────────────────────────────────────────
+  /* ── RFQ management ── */
   function openAddRfq() {
     setEditingRfq(null);
     setRfqForm({ supplierId: "", rfqNumber: "", quotedPrice: "", status: "pending", notes: "" });
@@ -414,10 +417,7 @@ export default function InquiryDetail() {
   }
 
   function handleRfqSubmit() {
-    if (!rfqForm.supplierId) {
-      toast({ title: "المورد مطلوب", variant: "destructive" });
-      return;
-    }
+    if (!rfqForm.supplierId) { toast({ title: "المورد مطلوب", variant: "destructive" }); return; }
     if (editingRfq) {
       updateRfqFn(
         {
@@ -436,7 +436,7 @@ export default function InquiryDetail() {
         ...(rfqForm.notes && { notes: rfqForm.notes }),
       });
       setRfqDialogOpen(false);
-      toast({ title: "تم إرسال طلب التسعير للمورد" });
+      toast({ title: "تم إنشاء طلب التسعير للمورد" });
     }
   }
 
@@ -447,17 +447,15 @@ export default function InquiryDetail() {
     toast({ title: "تم حذف طلب التسعير" });
   }
 
-  // ── Per-item price entry ──────────────────────────────────────────────────
+  /* ── Per-item price entry ── */
   function openEnterPrices(rfq: SupplierRfq) {
     setPriceDialogRfq(rfq);
     if (!comparison) { setItemPrices({}); return; }
-    const existingPrices: Record<number, string> = {};
+    const existing: Record<number, string> = {};
     for (const p of comparison.prices) {
-      if (p.rfqId === rfq.id && p.quotedPrice != null) {
-        existingPrices[p.inquiryItemId] = String(p.quotedPrice);
-      }
+      if (p.rfqId === rfq.id && p.quotedPrice != null) existing[p.inquiryItemId] = String(p.quotedPrice);
     }
-    setItemPrices(existingPrices);
+    setItemPrices(existing);
   }
 
   async function handleSaveItemPrices() {
@@ -471,7 +469,7 @@ export default function InquiryDetail() {
     setPriceDialogRfq(null);
   }
 
-  // ── Create quotation from RFQ selected prices ────────────────────────────
+  /* ── Create quotation from RFQ prices ── */
   function openQuotationFromRfqs() {
     if (!comparison) return;
     const initial: Record<number, { rfqId: number; supplierId: number | null; unitPrice: number } | null> = {};
@@ -519,38 +517,66 @@ export default function InquiryDetail() {
     }
   }
 
-  // ── Derived data ──────────────────────────────────────────────────────────
+  /* ── Derived ── */
   const hasPricesInComparison = comparison && comparison.prices.some((p) => p.quotedPrice != null);
-  const receivedRfqs = rfqs.filter((r) => r.status === "received");
 
+  /* ─── Loading / not found ─── */
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-40 w-full" /></div>;
   }
-
   if (!inquiry) {
     return (
       <div className="text-center py-16">
-        <p className="text-muted-foreground">الاستفسار غير موجود.</p>
-        <Button variant="link" onClick={() => setLocation("/inquiries")}>العودة للاستفسارات</Button>
+        <p className="text-muted-foreground">الطلب غير موجود.</p>
+        <Button variant="link" onClick={() => setLocation("/inquiries")}>العودة لطلبات التسعير</Button>
       </div>
     );
   }
 
+  const isDeadlinePassed = inquiry.replyDeadline && new Date(inquiry.replyDeadline).getTime() < Date.now();
+  const isDeadlineUrgent = inquiry.replyDeadline && !isDeadlinePassed &&
+    (new Date(inquiry.replyDeadline).getTime() - Date.now()) < 3 * 24 * 60 * 60 * 1000;
+
+  /* ═══════════════════════ RENDER ═══════════════════════ */
   return (
     <div className="space-y-6">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3">
+
+      {/* ── Header ── */}
+      <div className="flex flex-wrap items-start gap-3">
         <Button variant="ghost" size="icon" onClick={() => setLocation("/inquiries")}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">{inquiry.title}</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">
-            {inquiry.customerName ?? `عميل #${inquiry.customerId}`} •{" "}
-            {new Date(inquiry.createdAt).toLocaleDateString("ar-EG")}
-          </p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold tracking-tight">{inquiry.title}</h1>
+            {inquiry.inquiryNumber && (
+              <Badge variant="outline" className="font-mono text-xs">#{inquiry.inquiryNumber}</Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-4 mt-1.5 flex-wrap text-sm text-muted-foreground">
+            <span>{inquiry.customerName ?? `عميل #${inquiry.customerId}`}</span>
+            {inquiry.buyerName && (
+              <span className="flex items-center gap-1">
+                <User className="h-3.5 w-3.5" />
+                {inquiry.buyerName}
+              </span>
+            )}
+            <span>{new Date(inquiry.createdAt).toLocaleDateString("ar-EG")}</span>
+            {inquiry.replyDeadline && (
+              <span className={`flex items-center gap-1 font-medium ${isDeadlinePassed ? "text-red-600" : isDeadlineUrgent ? "text-amber-600" : "text-muted-foreground"}`}>
+                <Clock className="h-3.5 w-3.5" />
+                آخر رد: {new Date(inquiry.replyDeadline).toLocaleDateString("ar-EG")}
+                {isDeadlinePassed && " ⚠ تجاوز الموعد"}
+                {isDeadlineUrgent && " — قريب"}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          <Button variant="ghost" size="sm" onClick={openEditHeader}>
+            <Pencil className="h-3.5 w-3.5 mr-1" />
+            تعديل البيانات
+          </Button>
           <Select value={inquiry.status} onValueChange={handleStatusChange}>
             <SelectTrigger className="w-40" data-testid="select-inquiry-status">
               <SelectValue />
@@ -558,11 +584,12 @@ export default function InquiryDetail() {
             <SelectContent>
               <SelectItem value="new">جديد</SelectItem>
               <SelectItem value="in_progress">قيد المعالجة</SelectItem>
-              <SelectItem value="quoted">تم تقديم العرض</SelectItem>
+              <SelectItem value="quoted">تم التسعير</SelectItem>
               <SelectItem value="closed">مغلق</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" onClick={handleCreateQuotation} disabled={createQuotation.isPending} data-testid="button-create-quotation-from-inquiry">
+          <Button variant="outline" onClick={handleCreateQuotation} disabled={createQuotation.isPending}
+            data-testid="button-create-quotation-from-inquiry">
             <FileText className="h-4 w-4 mr-2" />
             عرض سعر فارغ
           </Button>
@@ -575,10 +602,16 @@ export default function InquiryDetail() {
         </Card>
       )}
 
-      {/* ── Inquiry items ──────────────────────────────────────────────────── */}
+      {/* ── STEP 1: بنود الطلب ── */}
       <Card>
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">البنود المطلوبة</CardTitle>
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <span className="bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">1</span>
+              بنود طلب التسعير
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">أضف البنود المطلوبة مع رقم القطعة والكود الداخلي للعميل</p>
+          </div>
           <Button size="sm" onClick={openAddItem} data-testid="button-add-item">
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             إضافة بند
@@ -586,49 +619,88 @@ export default function InquiryDetail() {
         </CardHeader>
         <CardContent>
           {inquiry.items.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-6">لا توجد بنود بعد.</p>
+            <div className="text-center py-8">
+              <p className="text-sm text-muted-foreground">لا توجد بنود بعد.</p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={openAddItem}>
+                <Plus className="h-3.5 w-3.5 mr-1.5" />
+                إضافة أول بند
+              </Button>
+            </div>
           ) : (
-            <div className="divide-y">
-              {inquiry.items.map((item) => (
-                <div key={item.id} className="flex items-center justify-between py-3" data-testid={`row-item-${item.id}`}>
-                  <div>
-                    <p className="text-sm font-medium">{item.description}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      الكمية: {item.quantity} {item.unit ?? ""}
-                      {item.notes && ` • ${item.notes}`}
-                    </p>
-                  </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditItem(item)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteItemId(item.id)}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-xs text-muted-foreground">
+                    <th className="text-right py-2 pr-2 font-medium w-6">#</th>
+                    <th className="text-right py-2 px-2 font-medium min-w-[180px]">الوصف</th>
+                    <th className="text-right py-2 px-2 font-medium min-w-[110px]">
+                      <span className="flex items-center gap-1"><Hash className="h-3 w-3" />Part No</span>
+                    </th>
+                    <th className="text-right py-2 px-2 font-medium min-w-[110px]">
+                      <span className="flex items-center gap-1"><Tag className="h-3 w-3" />كود العميل</span>
+                    </th>
+                    <th className="text-right py-2 px-2 font-medium">الكمية</th>
+                    <th className="text-right py-2 px-2 font-medium">الوحدة</th>
+                    <th className="py-2 px-2 w-20"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inquiry.items.map((item, idx) => (
+                    <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/30" data-testid={`row-item-${item.id}`}>
+                      <td className="py-3 pr-2 text-muted-foreground text-xs">{idx + 1}</td>
+                      <td className="py-3 px-2">
+                        <p className="font-medium">{item.description}</p>
+                        {item.notes && <p className="text-xs text-muted-foreground mt-0.5">{item.notes}</p>}
+                      </td>
+                      <td className="py-3 px-2">
+                        {(item as any).partNo
+                          ? <span className="font-mono text-xs bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{(item as any).partNo}</span>
+                          : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="py-3 px-2">
+                        {(item as any).customerInternalCode
+                          ? <span className="font-mono text-xs bg-purple-50 text-purple-700 px-1.5 py-0.5 rounded">{(item as any).customerInternalCode}</span>
+                          : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="py-3 px-2 font-medium">{item.quantity}</td>
+                      <td className="py-3 px-2 text-muted-foreground text-xs">{item.unit ?? "—"}</td>
+                      <td className="py-3 px-2">
+                        <div className="flex gap-1 justify-end">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditItem(item)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
+                            onClick={() => setDeleteItemId(item.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* ── Supplier RFQs ──────────────────────────────────────────────────── */}
+      {/* ── STEP 2: إرسال للموردين ── */}
       <Card className="border-blue-100">
         <CardHeader className="pb-3 flex flex-row items-center justify-between">
           <div>
             <CardTitle className="text-base flex items-center gap-2">
+              <span className="bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">2</span>
               <Send className="h-4 w-4 text-blue-600" />
-              طلبات تسعير الموردين
+              إرسال طلبات التسعير للموردين
             </CardTitle>
             <p className="text-xs text-muted-foreground mt-0.5">
-              أرسل طلبات للموردين وأدخل أسعارهم لكل بند ثم قارن واختر الأنسب
-              {rfqs.length > 0 && <span className="ml-1">({rfqs.length} طلب)</span>}
+              أرسل للموردين حسب فئة كل بند عبر الإيميل أو رابط البوابة
+              {rfqs.length > 0 && <span className="ml-1">({rfqs.length} طلب مُرسَل)</span>}
             </p>
           </div>
           <Button size="sm" onClick={openAddRfq} data-testid="button-add-rfq">
             <Plus className="h-3.5 w-3.5 mr-1.5" />
-            طلب تسعير جديد
+            إرسال لمورد
           </Button>
         </CardHeader>
         <CardContent>
@@ -640,15 +712,14 @@ export default function InquiryDetail() {
               <p className="text-sm text-muted-foreground">لم يُرسل أي طلب تسعير للموردين بعد.</p>
               <Button size="sm" variant="outline" className="mt-3" onClick={openAddRfq}>
                 <Plus className="h-3.5 w-3.5 mr-1.5" />
-                إرسال طلب تسعير
+                إرسال لأول مورد
               </Button>
             </div>
           ) : (
             <div>
               {rfqs.map((rfq) => (
                 <RfqCard
-                  key={rfq.id}
-                  rfq={rfq}
+                  key={rfq.id} rfq={rfq}
                   onEdit={openEditRfq}
                   onDelete={(id) => setRfqDeleteId(id)}
                   onEnterPrices={openEnterPrices}
@@ -662,27 +733,24 @@ export default function InquiryDetail() {
         </CardContent>
       </Card>
 
-      {/* ── Price comparison table ─────────────────────────────────────────── */}
+      {/* ── STEP 3: مقارنة الأسعار + إنشاء عرض السعر ── */}
       {comparison && comparison.rfqs.length > 0 && comparison.items.length > 0 && (
         <Card className="border-green-100">
           <CardHeader className="pb-3 flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-base flex items-center gap-2">
+                <span className="bg-green-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">3</span>
                 <Table2 className="h-4 w-4 text-green-600" />
-                مقارنة أسعار الموردين
+                مقارنة عروض أسعار الموردين
               </CardTitle>
               <p className="text-xs text-muted-foreground mt-0.5">
-                مقارنة أسعار البنود من كل المورّدين — أدخل أسعار البنود باستخدام زر "أسعار البنود" في كل طلب
+                قارن أسعار البنود من كل المورّدين ثم اختر الأنسب لبناء عرض السعر للعميل
               </p>
             </div>
             {hasPricesInComparison && (
-              <Button
-                size="sm"
-                onClick={openQuotationFromRfqs}
-                className="bg-green-600 hover:bg-green-700"
-              >
+              <Button size="sm" onClick={openQuotationFromRfqs} className="bg-green-600 hover:bg-green-700">
                 <FileText className="h-3.5 w-3.5 mr-1.5" />
-                إنشاء عرض سعر من الأسعار
+                بناء عرض السعر للعميل
               </Button>
             )}
           </CardHeader>
@@ -690,7 +758,8 @@ export default function InquiryDetail() {
             <table className="w-full text-sm border-collapse">
               <thead>
                 <tr className="border-b">
-                  <th className="text-right py-2 pr-3 font-medium text-muted-foreground min-w-[160px]">البند</th>
+                  <th className="text-right py-2 pr-3 font-medium text-muted-foreground min-w-[180px]">البند</th>
+                  <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs min-w-[80px]">Part No</th>
                   <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">الكمية</th>
                   {comparison.rfqs.map((rfq) => (
                     <th key={rfq.id} className="text-center py-2 px-3 font-medium min-w-[110px]">
@@ -709,9 +778,7 @@ export default function InquiryDetail() {
               <tbody>
                 {comparison.items.map((item) => {
                   const itemPricesList = comparison.rfqs.map((rfq) => {
-                    const p = comparison.prices.find(
-                      (px) => px.rfqId === rfq.id && px.inquiryItemId === item.id
-                    );
+                    const p = comparison.prices.find((px) => px.rfqId === rfq.id && px.inquiryItemId === item.id);
                     return p?.quotedPrice ?? null;
                   });
                   const validPrices = itemPricesList.filter((p): p is number => p != null);
@@ -722,6 +789,11 @@ export default function InquiryDetail() {
                       <td className="py-3 pr-3">
                         <p className="font-medium">{item.description}</p>
                         {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
+                      </td>
+                      <td className="py-3 px-2">
+                        {(item as any).partNo
+                          ? <span className="font-mono text-xs text-blue-700">{(item as any).partNo}</span>
+                          : <span className="text-muted-foreground text-xs">—</span>}
                       </td>
                       <td className="py-3 px-2 text-muted-foreground text-xs whitespace-nowrap">
                         {item.quantity} {item.unit ?? ""}
@@ -743,13 +815,9 @@ export default function InquiryDetail() {
                         );
                       })}
                       <td className="py-3 px-3 text-center">
-                        {minPrice != null ? (
-                          <span className="text-green-700 font-bold text-xs">
-                            {minPrice.toLocaleString()} ج.م
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground text-xs">—</span>
-                        )}
+                        {minPrice != null
+                          ? <span className="text-green-700 font-bold text-xs">{minPrice.toLocaleString()} ج.م</span>
+                          : <span className="text-muted-foreground text-xs">—</span>}
                       </td>
                     </tr>
                   );
@@ -760,62 +828,108 @@ export default function InquiryDetail() {
         </Card>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          DIALOGS
-      ══════════════════════════════════════════════════════════════════════ */}
+      {/* ══════════════════════════════════════ DIALOGS ══════════════════════════════════════ */}
 
-      {/* بند الاستفسار */}
+      {/* تعديل بيانات الطلب */}
+      <Dialog open={editHeaderOpen} onOpenChange={setEditHeaderOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>تعديل بيانات طلب التسعير</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>رقم الطلب</Label>
+                <Input value={headerForm.inquiryNumber} onChange={(e) => setHeaderForm({ ...headerForm, inquiryNumber: e.target.value })} placeholder="RFQ-2024-001" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>آخر تاريخ للرد</Label>
+                <Input type="date" value={headerForm.replyDeadline} onChange={(e) => setHeaderForm({ ...headerForm, replyDeadline: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>موضوع الطلب *</Label>
+              <Input value={headerForm.title} onChange={(e) => setHeaderForm({ ...headerForm, title: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>اسم المشتري / المسؤل لدى العميل</Label>
+              <Input value={headerForm.buyerName} onChange={(e) => setHeaderForm({ ...headerForm, buyerName: e.target.value })} placeholder="اسم الموظف المسؤل" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>ملاحظات عامة</Label>
+              <Textarea rows={2} value={headerForm.description} onChange={(e) => setHeaderForm({ ...headerForm, description: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditHeaderOpen(false)}>إلغاء</Button>
+            <Button onClick={handleSaveHeader} disabled={updateInquiry.isPending}>حفظ</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* إضافة / تعديل بند */}
       <Dialog open={itemDialogOpen} onOpenChange={setItemDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingItemId ? "تعديل البند" : "إضافة بند"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>الوصف *</Label>
-              <Input value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })} data-testid="input-item-description" />
+              <Input value={itemForm.description} onChange={(e) => setItemForm({ ...itemForm, description: e.target.value })}
+                placeholder="وصف المنتج أو المادة المطلوبة" data-testid="input-item-description" />
             </div>
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1"><Hash className="h-3 w-3" />رقم القطعة (Part No)</Label>
+                <Input value={itemForm.partNo} onChange={(e) => setItemForm({ ...itemForm, partNo: e.target.value })}
+                  placeholder="الرقم لدى المصنع" className="font-mono" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="flex items-center gap-1"><Tag className="h-3 w-3" />الكود الداخلي للعميل</Label>
+                <Input value={itemForm.customerInternalCode} onChange={(e) => setItemForm({ ...itemForm, customerInternalCode: e.target.value })}
+                  placeholder="كود العميل الداخلي" className="font-mono" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>الكمية *</Label>
-                <Input type="number" value={itemForm.quantity} onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })} data-testid="input-item-quantity" />
+                <Input type="number" value={itemForm.quantity} onChange={(e) => setItemForm({ ...itemForm, quantity: e.target.value })}
+                  data-testid="input-item-quantity" />
               </div>
               <div className="space-y-1.5">
                 <Label>الوحدة</Label>
-                <Input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })} placeholder="قطعة، كجم، متر..." />
+                <Input value={itemForm.unit} onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })}
+                  placeholder="قطعة، كجم، متر..." />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label>ملاحظات / المواصفات</Label>
-              <Textarea rows={2} value={itemForm.notes} onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })} placeholder="المواصفات التفصيلية للبند..." />
+              <Textarea rows={2} value={itemForm.notes} onChange={(e) => setItemForm({ ...itemForm, notes: e.target.value })}
+                placeholder="المواصفات التفصيلية..." />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setItemDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={handleItemSubmit} disabled={addItem.isPending || updateItem.isPending} data-testid="button-submit-item">
+            <Button onClick={handleItemSubmit} disabled={addItem.isPending || updateItem.isPending}
+              data-testid="button-submit-item">
               {editingItemId ? "تحديث" : "إضافة"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* طلب تسعير مورد */}
+      {/* طلب تسعير من مورد */}
       <Dialog open={rfqDialogOpen} onOpenChange={setRfqDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingRfq ? "تعديل طلب التسعير" : "طلب تسعير من مورد"}</DialogTitle>
+            <DialogTitle>{editingRfq ? "تعديل طلب التسعير" : "إرسال لمورد"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>المورد *</Label>
-              <Select
-                value={rfqForm.supplierId}
-                onValueChange={(v) => setRfqForm({ ...rfqForm, supplierId: v })}
-                disabled={!!editingRfq}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر المورد..." />
-                </SelectTrigger>
+              <Select value={rfqForm.supplierId} onValueChange={(v) => setRfqForm({ ...rfqForm, supplierId: v })} disabled={!!editingRfq}>
+                <SelectTrigger><SelectValue placeholder="اختر المورد..." /></SelectTrigger>
                 <SelectContent>
                   {(suppliers ?? []).map((s) => (
                     <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>
@@ -823,7 +937,7 @@ export default function InquiryDetail() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>رقم الطلب</Label>
                 <Input value={rfqForm.rfqNumber} onChange={(e) => setRfqForm({ ...rfqForm, rfqNumber: e.target.value })} placeholder="RFQ-001" />
@@ -844,14 +958,9 @@ export default function InquiryDetail() {
             <div className="space-y-1.5">
               <Label>السعر الإجمالي المعروض (اختياري)</Label>
               <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={rfqForm.quotedPrice}
+                <Input type="number" min="0" step="0.01" value={rfqForm.quotedPrice}
                   onChange={(e) => setRfqForm({ ...rfqForm, quotedPrice: e.target.value })}
-                  placeholder="يُملأ عند استلام رد المورد"
-                />
+                  placeholder="يُملأ عند استلام رد المورد" />
                 <span className="text-sm text-muted-foreground whitespace-nowrap">ج.م</span>
               </div>
               <p className="text-xs text-muted-foreground">للتسعير بالبند استخدم زر "أسعار البنود" بعد استلام الرد</p>
@@ -874,9 +983,7 @@ export default function InquiryDetail() {
       <Dialog open={!!priceDialogRfq} onOpenChange={(o) => !o && setPriceDialogRfq(null)}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle>
-              أسعار البنود — {priceDialogRfq?.supplierName ?? `مورد #${priceDialogRfq?.supplierId}`}
-            </DialogTitle>
+            <DialogTitle>أسعار البنود — {priceDialogRfq?.supplierName ?? `مورد #${priceDialogRfq?.supplierId}`}</DialogTitle>
           </DialogHeader>
           <div className="py-2">
             <p className="text-sm text-muted-foreground mb-4">
@@ -888,45 +995,40 @@ export default function InquiryDetail() {
                   <div key={item.id} className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{item.description}</p>
-                      <p className="text-xs text-muted-foreground">{item.quantity} {item.unit ?? "وحدة"}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <p className="text-xs text-muted-foreground">{item.quantity} {item.unit ?? "وحدة"}</p>
+                        {(item as any).partNo && (
+                          <span className="font-mono text-[10px] text-blue-600">{(item as any).partNo}</span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        className="w-28"
-                        placeholder="السعر"
+                      <Input type="number" min="0" step="0.01" className="w-28" placeholder="السعر"
                         value={itemPrices[item.id] ?? ""}
-                        onChange={(e) => setItemPrices((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      />
+                        onChange={(e) => setItemPrices((prev) => ({ ...prev, [item.id]: e.target.value }))} />
                       <span className="text-xs text-muted-foreground w-8">ج.م</span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                أضف بنوداً للاستفسار أولاً لتتمكن من إدخال أسعارها.
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-4">أضف بنوداً للطلب أولاً.</p>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPriceDialogRfq(null)}>إلغاء</Button>
-            <Button onClick={handleSaveItemPrices} disabled={isSavingPrices}>
-              حفظ الأسعار
-            </Button>
+            <Button onClick={handleSaveItemPrices} disabled={isSavingPrices}>حفظ الأسعار</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* إنشاء عرض سعر من أسعار الموردين */}
+      {/* بناء عرض السعر من أسعار الموردين */}
       <Dialog open={quotationDialogOpen} onOpenChange={setQuotationDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-green-600" />
-              إنشاء عرض سعر من أسعار الموردين
+              بناء عرض السعر للعميل
             </DialogTitle>
           </DialogHeader>
           <div className="py-2">
@@ -934,7 +1036,7 @@ export default function InquiryDetail() {
               اختر لكل بند المورد الذي ستعتمد سعره في عرض السعر للعميل. النجمة ⭐ تشير لأقل سعر.
             </p>
             {comparison && (
-              <div className="space-y-4">
+              <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
                 {comparison.items.map((item) => {
                   const itemPriceOptions = comparison.prices
                     .filter((p) => p.inquiryItemId === item.id && p.quotedPrice != null)
@@ -954,7 +1056,12 @@ export default function InquiryDetail() {
                       <div className="flex items-start justify-between mb-2">
                         <div>
                           <p className="font-medium text-sm">{item.description}</p>
-                          <p className="text-xs text-muted-foreground">الكمية: {item.quantity} {item.unit ?? ""}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-xs text-muted-foreground">الكمية: {item.quantity} {item.unit ?? ""}</p>
+                            {(item as any).partNo && (
+                              <span className="font-mono text-[10px] text-blue-600">{(item as any).partNo}</span>
+                            )}
+                          </div>
                         </div>
                         {totalPrice != null && (
                           <span className="text-sm font-bold text-green-700">
@@ -974,9 +1081,7 @@ export default function InquiryDetail() {
                                 [item.id]: isSelected ? null : { rfqId: opt.rfqId, supplierId: opt.supplierId, unitPrice: opt.unitPrice },
                               }))}
                               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
-                                isSelected
-                                  ? "bg-green-600 text-white border-green-600"
-                                  : "border-gray-200 hover:border-green-400 hover:bg-green-50"
+                                isSelected ? "bg-green-600 text-white border-green-600" : "border-gray-200 hover:border-green-400 hover:bg-green-50"
                               }`}
                             >
                               {isLowest && <Star className={`h-3 w-3 ${isSelected ? "fill-white text-white" : "fill-green-500 text-green-500"}`} />}
@@ -996,44 +1101,69 @@ export default function InquiryDetail() {
                       </div>
                     </div>
                   );
-                }).filter(Boolean)}
+                })}
               </div>
             )}
-
-            {/* Totals summary */}
             {comparison && (
-              <div className="mt-4 p-3 bg-green-50 rounded-md border border-green-100">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-green-800">
-                    البنود المختارة: {Object.values(selectedPrices).filter((v) => v != null).length} من {comparison.items.filter((item) => comparison.prices.some((p) => p.inquiryItemId === item.id && p.quotedPrice != null)).length}
-                  </span>
-                  <span className="text-sm font-bold text-green-800">
-                    الإجمالي: {Object.entries(selectedPrices).reduce((sum, [itemId, sel]) => {
-                      if (!sel) return sum;
-                      const item = comparison.items.find((i) => i.id === Number(itemId));
-                      return sum + (item ? item.quantity * sel.unitPrice : 0);
-                    }, 0).toLocaleString()} ج.م
-                  </span>
-                </div>
+              <div className="mt-4 pt-3 border-t flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {Object.values(selectedPrices).filter(Boolean).length} بند محدد من {comparison.items.length}
+                </span>
+                <span className="font-bold text-green-700">
+                  إجمالي: {
+                    Object.entries(selectedPrices)
+                      .filter(([, v]) => v != null)
+                      .reduce((sum, [itemId, v]) => {
+                        const item = comparison.items.find((i) => i.id === Number(itemId));
+                        return sum + (item ? item.quantity * v!.unitPrice : 0);
+                      }, 0)
+                      .toLocaleString()
+                  } ج.م
+                </span>
               </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setQuotationDialogOpen(false)}>إلغاء</Button>
             <Button onClick={handleCreateQuotationFromRfqs} disabled={isCreatingFromRfqs} className="bg-green-600 hover:bg-green-700">
-              <FileText className="h-4 w-4 mr-1.5" />
+              <FileText className="h-4 w-4 mr-2" />
               إنشاء عرض السعر
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* حذف بند */}
+      {/* إرسال إيميل */}
+      <Dialog open={!!sendEmailDialogRfq} onOpenChange={(o) => !o && setSendEmailDialogRfq(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>إرسال طلب التسعير بالإيميل</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              سيتم إرسال رابط بوابة التسعير لـ <span className="font-medium text-foreground">{sendEmailDialogRfq?.supplierName}</span>
+            </p>
+            <div className="space-y-1.5">
+              <Label>آخر موعد للرد (اختياري)</Label>
+              <Input type="date" value={emailCloseDate} onChange={(e) => setEmailCloseDate(e.target.value)} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSendEmailDialogRfq(null)}>إلغاء</Button>
+            <Button onClick={handleSendEmail} disabled={sendingEmailId != null}>
+              <Mail className="h-4 w-4 mr-2" />
+              إرسال الإيميل
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* تأكيد حذف البند */}
       <AlertDialog open={deleteItemId != null} onOpenChange={(o) => !o && setDeleteItemId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>حذف البند؟</AlertDialogTitle>
-            <AlertDialogDescription>هذا الإجراء لا يمكن التراجع عنه.</AlertDialogDescription>
+            <AlertDialogDescription>سيتم حذف هذا البند نهائياً.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
@@ -1042,12 +1172,12 @@ export default function InquiryDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* حذف طلب تسعير */}
+      {/* تأكيد حذف طلب تسعير مورد */}
       <AlertDialog open={rfqDeleteId != null} onOpenChange={(o) => !o && setRfqDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>حذف طلب التسعير؟</AlertDialogTitle>
-            <AlertDialogDescription>سيتم حذف طلب التسعير المرسل لهذا المورد.</AlertDialogDescription>
+            <AlertDialogDescription>سيتم حذف طلب التسعير الخاص بهذا المورد.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>إلغاء</AlertDialogCancel>
@@ -1055,48 +1185,6 @@ export default function InquiryDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* إرسال بالإيميل */}
-      <Dialog open={sendEmailDialogRfq != null} onOpenChange={(o) => !o && setSendEmailDialogRfq(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-blue-600" />
-              إرسال طلب التسعير بالإيميل
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
-              <p className="font-medium text-blue-800">{sendEmailDialogRfq?.supplierName}</p>
-              <p className="text-blue-600 mt-0.5">{sendEmailDialogRfq?.supplierEmail}</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>آخر موعد لتقديم العرض (اختياري)</Label>
-              <Input
-                type="date"
-                value={emailCloseDate}
-                onChange={(e) => setEmailCloseDate(e.target.value)}
-                min={new Date().toISOString().split("T")[0]}
-              />
-              <p className="text-xs text-muted-foreground">سيظهر هذا التاريخ في الإيميل وفي بوابة المورد.</p>
-            </div>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-700">
-              <strong>تنبيه:</strong> يتطلب الإرسال ضبط متغيرات SMTP_USER و SMTP_PASS في إعدادات البيئة.
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSendEmailDialogRfq(null)}>إلغاء</Button>
-            <Button
-              onClick={handleSendEmail}
-              disabled={sendingEmailId != null}
-              className="gap-1.5"
-            >
-              <Mail className="h-4 w-4" />
-              {sendingEmailId != null ? "جارٍ الإرسال..." : "إرسال الإيميل"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

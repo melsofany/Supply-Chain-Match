@@ -1276,6 +1276,12 @@ components:
           type: integer
         description:
           type: string
+        partNo:
+          type: ["string", "null"]
+          description: رقم القطعة لدى المصنع (Manufacturer Part Number)
+        customerInternalCode:
+          type: ["string", "null"]
+          description: الكود الداخلي للمنتج لدى العميل
         quantity:
           type: number
         unit:
@@ -1293,10 +1299,19 @@ components:
           type: integer
         customerName:
           type: ["string", "null"]
+        inquiryNumber:
+          type: ["string", "null"]
+          description: رقم الطلب
         title:
           type: string
         description:
           type: ["string", "null"]
+        buyerName:
+          type: ["string", "null"]
+          description: اسم المشتري / الموظف المسؤل لدى العميل
+        replyDeadline:
+          type: ["string", "null"]
+          description: آخر تاريخ للرد على الطلب
         status:
           type: string
           enum: [new, in_progress, quoted, closed]
@@ -1314,10 +1329,16 @@ components:
       properties:
         customerId:
           type: integer
+        inquiryNumber:
+          type: string
         title:
           type: string
           minLength: 1
         description:
+          type: string
+        buyerName:
+          type: string
+        replyDeadline:
           type: string
         status:
           type: string
@@ -1326,10 +1347,16 @@ components:
     InquiryUpdate:
       type: object
       properties:
+        inquiryNumber:
+          type: string
         title:
           type: string
           minLength: 1
         description:
+          type: string
+        buyerName:
+          type: string
+        replyDeadline:
           type: string
         status:
           type: string
@@ -1342,6 +1369,10 @@ components:
         description:
           type: string
           minLength: 1
+        partNo:
+          type: string
+        customerInternalCode:
+          type: string
         quantity:
           type: number
         unit:
@@ -1355,6 +1386,10 @@ components:
         description:
           type: string
           minLength: 1
+        partNo:
+          type: string
+        customerInternalCode:
+          type: string
         quantity:
           type: number
         unit:

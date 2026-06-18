@@ -13,9 +13,24 @@ export interface InquiryWithItems {
   customerId: number;
   /** @nullable */
   customerName?: string | null;
+  /**
+     * رقم الطلب
+     * @nullable
+     */
+  inquiryNumber?: string | null;
   title: string;
   /** @nullable */
   description?: string | null;
+  /**
+     * اسم المشتري / الموظف المسؤل لدى العميل
+     * @nullable
+     */
+  buyerName?: string | null;
+  /**
+     * آخر تاريخ للرد على الطلب
+     * @nullable
+     */
+  replyDeadline?: string | null;
   status: InquiryWithItemsStatus;
   createdAt: Date;
   items: InquiryItem[];
