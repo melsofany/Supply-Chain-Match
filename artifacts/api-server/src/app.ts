@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { initLedger } from "./lib/ledger-service";
+import { errorMiddleware } from "./middlewares/error.middleware";
 
 const app: Express = express();
 
@@ -31,6 +32,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
+
+app.use(errorMiddleware);
 
 initLedger().catch((err) => {
   logger.error({ err }, "Failed to initialize LedgerStack Core accounting system");
