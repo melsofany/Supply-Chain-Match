@@ -36,31 +36,21 @@ const ROLES = [
   },
 ];
 
-async function seed() {
-  console.log("Seeding roles and permissions...");
+export async function seedAdmin(): Promise<void> {
   for (const roleDef of ROLES) {
     let [role] = await db.select().from(rolesTable).where(eq(rolesTable.name, roleDef.name));
     if (!role) {
       const [created] = await db.insert(rolesTable).values({ name: roleDef.name, label: roleDef.label, isSystem: roleDef.isSystem }).returning();
       role = created;
-      console.log(`  Created role: ${role.name}`);
     }
     await db.delete(rolePermissionsTable).where(eq(rolePermissionsTable.roleId, role.id));
     await db.insert(rolePermissionsTable).values(roleDef.perms.map((p) => ({ roleId: role.id, ...p })));
-    console.log(`  Updated permissions for: ${role.name}`);
   }
 
   const [adminRole] = await db.select().from(rolesTable).where(eq(rolesTable.name, "admin"));
   const [existing] = await db.select().from(usersTable).where(eq(usersTable.email, "admin@system.local"));
-  if (!existing) {
+  if (!existing && adminRole) {
     const passwordHash = await bcrypt.hash("admin123", 12);
     await db.insert(usersTable).values({ email: "admin@system.local", passwordHash, name: "مدير النظام", roleId: adminRole.id, isActive: true });
-    console.log("  Created admin user: admin@system.local / admin123");
-  } else {
-    console.log("  Admin user already exists");
   }
-  console.log("Seed complete.");
-  process.exit(0);
 }
-
-seed().catch((e) => { console.error(e); process.exit(1); });

@@ -5,6 +5,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { initLedger } from "./lib/ledger-service";
 import { errorMiddleware } from "./middlewares/error.middleware";
+import { seedAdmin } from "./scripts/seed-admin";
 
 const app: Express = express();
 
@@ -37,6 +38,10 @@ app.use(errorMiddleware);
 
 initLedger().catch((err) => {
   logger.error({ err }, "Failed to initialize LedgerStack Core accounting system");
+});
+
+seedAdmin().catch((err) => {
+  logger.error({ err }, "Failed to seed admin user");
 });
 
 export default app;
