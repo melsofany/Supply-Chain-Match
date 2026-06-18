@@ -31,6 +31,8 @@ export const supplierRfqItemsTable = pgTable("supplier_rfq_items", {
   inquiryItemId: integer("inquiry_item_id").notNull(),
   quotedPrice: numeric("quoted_price", { precision: 15, scale: 2 }),
   notes: text("notes"),
+  taxIncluded: boolean("tax_included").notNull().default(false),
+  deliveryDays: integer("delivery_days"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

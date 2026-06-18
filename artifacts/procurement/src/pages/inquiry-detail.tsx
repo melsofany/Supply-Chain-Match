@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Plus, Pencil, Trash2, FileText, Send, CheckCircle,
-  Clock, XCircle, Table2, Star, Mail, Eye, Link2, Copy, Download, User, Hash, Tag,
+  Clock, XCircle, Table2, Star, Mail, Eye, Link2, Copy, Download, User, Hash, Tag, MessageCircle,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -44,7 +45,9 @@ import {
   useDeleteSupplierRfq,
   useUpsertRfqItems,
   useCreateQuotationFromRfqs,
+  useSendBulk,
   type SupplierRfq,
+  type BulkSendResult,
 } from "@/hooks/use-supplier-rfqs";
 import { INQUIRY_STATUS_COLORS, INQUIRY_STATUS_LABELS } from "@/lib/status";
 
@@ -227,6 +230,12 @@ export default function InquiryDetail() {
   const [emailCloseDate, setEmailCloseDate] = useState("");
   const [sendingEmailId, setSendingEmailId] = useState<number | null>(null);
 
+  /* ── Batch send ── */
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<number>>(new Set());
+  const [batchCloseDate, setBatchCloseDate] = useState("");
+  const [batchCategoryFilter, setBatchCategoryFilter] = useState("all");
+  const [bulkResults, setBulkResults] = useState<BulkSendResult[] | null>(null);
+
   const { isUpdating: isUpdatingRfq, update: updateRfqFn } = useUpdateSupplierRfq(
     editingRfq?.id ?? 0,
     () => { refetchRfqs(); refetchComparison(); }
@@ -239,6 +248,7 @@ export default function InquiryDetail() {
     () => { refetchComparison(); }
   );
   const { create: createQuotationFromRfqs, isCreating: isCreatingFromRfqs } = useCreateQuotationFromRfqs(numId);
+  const { send: sendBulk, isSending: isSendingBulk } = useSendBulk(numId, () => { refetchRfqs(); refetchComparison(); });
 
   /* ── Header handlers ── */
   function openEditHeader() {
@@ -397,6 +407,19 @@ export default function InquiryDetail() {
     }
   }
 
+  async function handleBulkSend() {
+    if (selectedSupplierIds.size === 0) return;
+    setBulkResults(null);
+    try {
+      const results = await sendBulk([...selectedSupplierIds], batchCloseDate || undefined);
+      setBulkResults(results);
+      setSelectedSupplierIds(new Set());
+      setBatchCloseDate("");
+    } catch (e: any) {
+      toast({ title: e.message, variant: "destructive" });
+    }
+  }
+
   /* ── RFQ management ── */
   function openAddRfq() {
     setEditingRfq(null);
@@ -516,6 +539,12 @@ export default function InquiryDetail() {
       toast({ title: e?.message ?? "فشل إنشاء عرض السعر", variant: "destructive" });
     }
   }
+
+  /* ── Batch send derived ── */
+  const supplierCategories = [...new Set((suppliers ?? []).map((s) => s.category).filter((c): c is string => !!c))];
+  const filteredSuppliers = (suppliers ?? []).filter((s) =>
+    batchCategoryFilter === "all" || s.category === batchCategoryFilter
+  );
 
   /* ── Derived ── */
   const hasPricesInComparison = comparison && comparison.prices.some((p) => p.quotedPrice != null);
@@ -684,52 +713,177 @@ export default function InquiryDetail() {
         </CardContent>
       </Card>
 
-      {/* ── STEP 2: إرسال للموردين ── */}
+      {/* ── STEP 2: إرسال للموردين (Batch Send) ── */}
       <Card className="border-blue-100">
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-base flex items-center gap-2">
-              <span className="bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">2</span>
-              <Send className="h-4 w-4 text-blue-600" />
-              إرسال طلبات التسعير للموردين
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              أرسل للموردين حسب فئة كل بند عبر الإيميل أو رابط البوابة
-              {rfqs.length > 0 && <span className="ml-1">({rfqs.length} طلب مُرسَل)</span>}
-            </p>
-          </div>
-          <Button size="sm" onClick={openAddRfq} data-testid="button-add-rfq">
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            إرسال لمورد
-          </Button>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <span className="bg-blue-600 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">2</span>
+            <Send className="h-4 w-4 text-blue-600" />
+            إرسال طلبات التسعير للموردين
+          </CardTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            اختر الموردين وأرسل لهم طلب التسعير دفعة واحدة عبر الإيميل والواتساب
+            {rfqs.length > 0 && <span className="mr-1 font-medium text-blue-600">• {rfqs.length} في سجل الإرسال</span>}
+          </p>
         </CardHeader>
-        <CardContent>
-          {isLoadingRfqs ? (
-            <div className="space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
-          ) : rfqs.length === 0 ? (
-            <div className="text-center py-6">
-              <Send className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">لم يُرسل أي طلب تسعير للموردين بعد.</p>
-              <Button size="sm" variant="outline" className="mt-3" onClick={openAddRfq}>
-                <Plus className="h-3.5 w-3.5 mr-1.5" />
-                إرسال لأول مورد
-              </Button>
-            </div>
-          ) : (
-            <div>
-              {rfqs.map((rfq) => (
-                <RfqCard
-                  key={rfq.id} rfq={rfq}
-                  onEdit={openEditRfq}
-                  onDelete={(id) => setRfqDeleteId(id)}
-                  onEnterPrices={openEnterPrices}
-                  onSendEmail={openSendEmail}
-                  onGenerateLink={handleGenerateLink}
-                  isSendingEmail={sendingEmailId === rfq.id}
-                />
+        <CardContent className="space-y-4">
+          {/* Category filter pills */}
+          {supplierCategories.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {["all", ...supplierCategories].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setBatchCategoryFilter(cat)}
+                  className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    batchCategoryFilter === cat
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700"
+                  }`}
+                >
+                  {cat === "all" ? "كل الموردين" : cat}
+                </button>
               ))}
             </div>
           )}
+
+          {/* Supplier list with checkboxes */}
+          {!suppliers || suppliers.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              لا يوجد موردون مسجلون.{" "}
+              <a href="/suppliers" className="underline text-blue-600">إضافة مورد</a>
+            </p>
+          ) : (
+            <div className="border rounded-md divide-y">
+              {/* Select all header */}
+              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 sticky top-0">
+                <Checkbox
+                  id="select-all-suppliers"
+                  checked={filteredSuppliers.length > 0 && filteredSuppliers.every((s) => selectedSupplierIds.has(s.id))}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedSupplierIds(new Set(filteredSuppliers.map((s) => s.id)));
+                    } else {
+                      setSelectedSupplierIds(new Set());
+                    }
+                  }}
+                />
+                <label htmlFor="select-all-suppliers" className="text-xs text-muted-foreground cursor-pointer select-none">
+                  تحديد الكل ({filteredSuppliers.length} مورد)
+                </label>
+              </div>
+              {/* Supplier rows */}
+              <div className="max-h-52 overflow-y-auto divide-y">
+                {filteredSuppliers.map((supplier) => {
+                  const alreadySent = rfqs.some((r) => r.supplierId === supplier.id);
+                  return (
+                    <div key={supplier.id} className={`flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 ${alreadySent ? "bg-blue-50/40" : ""}`}>
+                      <Checkbox
+                        checked={selectedSupplierIds.has(supplier.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedSupplierIds((prev) => {
+                            const next = new Set(prev);
+                            checked ? next.add(supplier.id) : next.delete(supplier.id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-medium">{supplier.name}</p>
+                          {alreadySent && <Badge variant="outline" className="text-[10px] text-blue-600 border-blue-200 py-0">أُرسل</Badge>}
+                        </div>
+                        <div className="flex gap-3 mt-0.5">
+                          {supplier.email && (
+                            <span className="text-[10px] text-green-600 flex items-center gap-0.5">
+                              <Mail className="h-2.5 w-2.5" />{supplier.email}
+                            </span>
+                          )}
+                          {supplier.phone && (
+                            <span className="text-[10px] text-green-600 flex items-center gap-0.5">
+                              <MessageCircle className="h-2.5 w-2.5" />{supplier.phone}
+                            </span>
+                          )}
+                          {!supplier.email && !supplier.phone && (
+                            <span className="text-[10px] text-red-400">لا توجد وسيلة تواصل مسجلة</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Close date + Send button */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1 flex-1 min-w-[160px]">
+              <Label className="text-xs text-muted-foreground">آخر موعد للرد (اختياري)</Label>
+              <Input type="date" value={batchCloseDate} onChange={(e) => setBatchCloseDate(e.target.value)} />
+            </div>
+            <Button
+              onClick={handleBulkSend}
+              disabled={selectedSupplierIds.size === 0 || isSendingBulk}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              {isSendingBulk ? "جارٍ الإرسال..." : `إرسال${selectedSupplierIds.size > 0 ? ` لـ ${selectedSupplierIds.size} مورد` : ""}`}
+            </Button>
+            <Button size="sm" variant="outline" onClick={openAddRfq}>
+              <Plus className="h-3.5 w-3.5 mr-1" />
+              يدوي
+            </Button>
+          </div>
+
+          {/* Bulk send results */}
+          {bulkResults && (
+            <div className="rounded-md border bg-gray-50 p-3 space-y-1.5">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs font-semibold text-muted-foreground">نتائج الإرسال</p>
+                <button onClick={() => setBulkResults(null)} className="text-xs text-muted-foreground hover:text-gray-700">✕</button>
+              </div>
+              {bulkResults.map((r) => (
+                <div key={r.supplierId} className="flex items-center gap-2 text-xs">
+                  <span className="font-medium min-w-[120px] truncate">{r.supplierName ?? `مورد #${r.supplierId}`}</span>
+                  <span className={`flex items-center gap-0.5 ${r.email.status === "sent" ? "text-green-600" : r.email.status === "no_email" ? "text-muted-foreground" : "text-red-500"}`}>
+                    <Mail className="h-3 w-3" />
+                    {r.email.status === "sent" ? "✓" : r.email.status === "no_email" ? "—" : "✗"}
+                  </span>
+                  <span className={`flex items-center gap-0.5 ${r.whatsapp.status === "sent" ? "text-green-600" : r.whatsapp.status === "no_phone" ? "text-muted-foreground" : "text-red-500"}`}>
+                    <MessageCircle className="h-3 w-3" />
+                    {r.whatsapp.status === "sent" ? "✓" : r.whatsapp.status === "no_phone" ? "—" : "✗"}
+                  </span>
+                  {(r.email.reason || r.whatsapp.reason) && (
+                    <span className="text-red-500 truncate">{r.email.reason ?? r.whatsapp.reason}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Tracking: existing RFQ cards */}
+          {isLoadingRfqs ? (
+            <div className="space-y-2"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div>
+          ) : rfqs.length > 0 ? (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1">
+                <Eye className="h-3 w-3" /> سجل الإرسال والمتابعة
+              </p>
+              <div className="border rounded-md">
+                {rfqs.map((rfq) => (
+                  <RfqCard
+                    key={rfq.id} rfq={rfq}
+                    onEdit={openEditRfq}
+                    onDelete={(id) => setRfqDeleteId(id)}
+                    onEnterPrices={openEnterPrices}
+                    onSendEmail={openSendEmail}
+                    onGenerateLink={handleGenerateLink}
+                    isSendingEmail={sendingEmailId === rfq.id}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -757,7 +911,7 @@ export default function InquiryDetail() {
           <CardContent className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="border-b">
+                <tr className="border-b bg-gray-50">
                   <th className="text-right py-2 pr-3 font-medium text-muted-foreground min-w-[180px]">البند</th>
                   <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs min-w-[80px]">Part No</th>
                   <th className="text-right py-2 px-2 font-medium text-muted-foreground text-xs">الكمية</th>
@@ -772,7 +926,9 @@ export default function InquiryDetail() {
                       </p>
                     </th>
                   ))}
-                  <th className="text-center py-2 px-3 font-medium text-green-700 text-xs min-w-[80px]">الأقل سعراً</th>
+                  <th className="text-center py-2 px-2 font-medium text-green-700 text-xs whitespace-nowrap border-r border-l">الأقل ↓</th>
+                  <th className="text-center py-2 px-2 font-medium text-blue-600 text-xs whitespace-nowrap">المتوسط</th>
+                  <th className="text-center py-2 px-2 font-medium text-red-600 text-xs whitespace-nowrap">الأعلى ↑</th>
                 </tr>
               </thead>
               <tbody>
@@ -783,6 +939,17 @@ export default function InquiryDetail() {
                   });
                   const validPrices = itemPricesList.filter((p): p is number => p != null);
                   const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : null;
+                  const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : null;
+                  const avgPrice = validPrices.length > 0 ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length : null;
+
+                  function priceColorClass(price: number | null): string {
+                    if (price == null || minPrice == null || maxPrice == null || minPrice === maxPrice) return "";
+                    const ratio = (price - minPrice) / (maxPrice - minPrice);
+                    if (ratio === 0) return "text-green-700 font-bold";
+                    if (ratio < 0.35) return "text-green-600";
+                    if (ratio < 0.65) return "text-amber-600";
+                    return "text-red-600";
+                  }
 
                   return (
                     <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/30">
@@ -804,7 +971,7 @@ export default function InquiryDetail() {
                         return (
                           <td key={rfq.id} className="py-3 px-3 text-center">
                             {price != null ? (
-                              <span className={`font-semibold ${isLowest ? "text-green-700" : ""}`}>
+                              <span className={priceColorClass(price)}>
                                 {isLowest && <Star className="h-3 w-3 inline mr-0.5 fill-green-600 text-green-600" />}
                                 {price.toLocaleString()}
                               </span>
@@ -814,9 +981,19 @@ export default function InquiryDetail() {
                           </td>
                         );
                       })}
-                      <td className="py-3 px-3 text-center">
+                      <td className="py-3 px-2 text-center border-r border-l">
                         {minPrice != null
-                          ? <span className="text-green-700 font-bold text-xs">{minPrice.toLocaleString()} ج.م</span>
+                          ? <span className="text-green-700 font-bold text-xs">{minPrice.toLocaleString()}</span>
+                          : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="py-3 px-2 text-center">
+                        {avgPrice != null
+                          ? <span className="text-blue-600 text-xs">{avgPrice.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                          : <span className="text-muted-foreground text-xs">—</span>}
+                      </td>
+                      <td className="py-3 px-2 text-center">
+                        {maxPrice != null && validPrices.length > 1
+                          ? <span className="text-red-600 text-xs">{maxPrice.toLocaleString()}</span>
                           : <span className="text-muted-foreground text-xs">—</span>}
                       </td>
                     </tr>

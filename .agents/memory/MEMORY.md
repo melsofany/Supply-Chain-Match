@@ -1,3 +1,5 @@
 - [Drizzle numeric columns](drizzle-numeric-strings.md) — numeric/decimal columns must be passed as strings in insert/update; always cast with String() before Drizzle calls, Number() after reads.
 - [pdfkit esbuild bundling](pdfkit-esbuild-bundling.md) — pdfkit and fontkit must be marked as external in build.mjs, otherwise fontkit's @swc/helpers CJS dep is missing at runtime.
 - [Workflow ports setup](workflow-ports.md) — API Server on port 8080 (console outputType), frontend on port 5000 (webview outputType); Vite proxies /api → localhost:8080. Port 5000 must always be webview.
+- [DB push TTY workaround](db-push-tty.md) — drizzle-kit push fails with TTY error in non-interactive shells; use direct SQL ALTER TABLE via executeSql() code_execution tool instead.
+- [RFQ bulk send endpoint](rfq-bulk-send.md) — POST /api/inquiries/:id/send-bulk creates/reuses RFQ per supplier, generates token, sends email+whatsapp, returns per-supplier results array.

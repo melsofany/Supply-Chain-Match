@@ -1,10 +1,11 @@
 /**
  * Supplier Portal — public page (no auth required).
  * Supplier opens unique link from email → sees RFQ items → enters prices → submits.
+ * Supports per-item: price, taxIncluded, deliveryDays, notes.
  */
 import { useState, useEffect } from "react";
 import { useParams } from "wouter";
-import { CheckCircle, Clock, AlertCircle, Send } from "lucide-react";
+import { CheckCircle, Clock, AlertCircle, Send, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,7 +34,20 @@ interface PortalData {
     status: string;
   };
   items: PortalItem[];
-  existingPrices: { inquiryItemId: number; quotedPrice: number | null; notes: string | null }[];
+  existingPrices: {
+    inquiryItemId: number;
+    quotedPrice: number | null;
+    notes: string | null;
+    taxIncluded?: boolean;
+    deliveryDays?: number | null;
+  }[];
+}
+
+interface ItemEntry {
+  price: string;
+  notes: string;
+  taxIncluded: boolean;
+  deliveryDays: string;
 }
 
 export default function SupplierPortal() {
@@ -43,8 +57,7 @@ export default function SupplierPortal() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // prices: inquiryItemId → {price, notes}
-  const [prices, setPrices] = useState<Record<number, { price: string; notes: string }>>({});
+  const [prices, setPrices] = useState<Record<number, ItemEntry>>({});
   const [generalNotes, setGeneralNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -63,12 +76,13 @@ export default function SupplierPortal() {
       })
       .then((d: PortalData) => {
         setData(d);
-        // Pre-fill existing prices
-        const init: Record<number, { price: string; notes: string }> = {};
+        const init: Record<number, ItemEntry> = {};
         for (const p of d.existingPrices) {
           init[p.inquiryItemId] = {
             price: p.quotedPrice != null ? String(p.quotedPrice) : "",
             notes: p.notes ?? "",
+            taxIncluded: p.taxIncluded ?? false,
+            deliveryDays: p.deliveryDays != null ? String(p.deliveryDays) : "",
           };
         }
         setPrices(init);
@@ -80,12 +94,27 @@ export default function SupplierPortal() {
       });
   }, [token]);
 
+  function setField(itemId: number, field: keyof ItemEntry, value: string | boolean) {
+    setPrices((prev) => ({
+      ...prev,
+      [itemId]: {
+        price: prev[itemId]?.price ?? "",
+        notes: prev[itemId]?.notes ?? "",
+        taxIncluded: prev[itemId]?.taxIncluded ?? false,
+        deliveryDays: prev[itemId]?.deliveryDays ?? "",
+        [field]: value,
+      },
+    }));
+  }
+
   async function handleSubmit() {
     if (!data) return;
     const items = data.items.map((item) => ({
       inquiryItemId: item.id,
       quotedPrice: prices[item.id]?.price ? Number(prices[item.id].price) : null,
       notes: prices[item.id]?.notes || undefined,
+      taxIncluded: prices[item.id]?.taxIncluded ?? false,
+      deliveryDays: prices[item.id]?.deliveryDays ? Number(prices[item.id].deliveryDays) : null,
     }));
 
     const hasAnyPrice = items.some((i) => i.quotedPrice != null);
@@ -166,6 +195,7 @@ export default function SupplierPortal() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-slate-100 py-8 px-4" dir="rtl">
       <div className="max-w-2xl mx-auto space-y-5">
+
         {/* Header */}
         <div className="bg-[#1e3a5f] text-white rounded-xl p-5 shadow-md">
           <p className="text-blue-200 text-sm mb-1">طلب عرض سعر</p>
@@ -187,7 +217,7 @@ export default function SupplierPortal() {
 
         {/* Instructions */}
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800">
-          <strong>تعليمات:</strong> يرجى إدخال سعر الوحدة (بالجنيه المصري) لكل صنف من الأصناف المطلوبة. يمكنك ترك الحقل فارغاً إذا لم تتوفر لديكم الصنف.
+          <strong>تعليمات:</strong> يرجى إدخال سعر الوحدة لكل صنف. حدد ما إذا كان السعر شامل الضريبة، وأدخل مدة التوريد المتوقعة بالأيام. يمكنك ترك الحقل فارغاً إذا لم تتوفر لديكم الصنف.
         </div>
 
         {/* Items */}
@@ -198,6 +228,7 @@ export default function SupplierPortal() {
           <CardContent className="space-y-4">
             {items.map((item, idx) => (
               <div key={item.id} className="border rounded-lg p-4 space-y-3 bg-white">
+                {/* Item header */}
                 <div className="flex items-start gap-3">
                   <span className="flex-shrink-0 w-7 h-7 bg-[#1e3a5f] text-white rounded-full flex items-center justify-center text-xs font-bold">
                     {idx + 1}
@@ -206,10 +237,12 @@ export default function SupplierPortal() {
                     <p className="font-semibold text-sm">{item.description}</p>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       الكمية المطلوبة: <strong>{item.quantity ?? "—"} {item.unit ?? ""}</strong>
-                      {item.notes && <span className="ml-2">| {item.notes}</span>}
+                      {item.notes && <span className="mr-2 text-gray-400">| {item.notes}</span>}
                     </p>
                   </div>
                 </div>
+
+                {/* Price + Notes */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">سعر الوحدة (ج.م)</Label>
@@ -220,12 +253,7 @@ export default function SupplierPortal() {
                         step="0.01"
                         placeholder="0.00"
                         value={prices[item.id]?.price ?? ""}
-                        onChange={(e) =>
-                          setPrices((p) => ({
-                            ...p,
-                            [item.id]: { ...p[item.id], price: e.target.value, notes: p[item.id]?.notes ?? "" },
-                          }))
-                        }
+                        onChange={(e) => setField(item.id, "price", e.target.value)}
                         className="text-left font-mono"
                       />
                       <span className="text-xs text-muted-foreground whitespace-nowrap">ج.م</span>
@@ -234,14 +262,38 @@ export default function SupplierPortal() {
                   <div className="space-y-1">
                     <Label className="text-xs text-muted-foreground">ملاحظة (اختياري)</Label>
                     <Input
-                      placeholder="موعد توريد، شرط..."
+                      placeholder="أي تفاصيل إضافية..."
                       value={prices[item.id]?.notes ?? ""}
-                      onChange={(e) =>
-                        setPrices((p) => ({
-                          ...p,
-                          [item.id]: { ...p[item.id], notes: e.target.value, price: p[item.id]?.price ?? "" },
-                        }))
-                      }
+                      onChange={(e) => setField(item.id, "notes", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Tax + Delivery */}
+                <div className="grid grid-cols-2 gap-3 pt-1 border-t">
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="checkbox"
+                      id={`tax-${item.id}`}
+                      checked={prices[item.id]?.taxIncluded ?? false}
+                      onChange={(e) => setField(item.id, "taxIncluded", e.target.checked)}
+                      className="w-4 h-4 accent-[#1e3a5f] cursor-pointer"
+                    />
+                    <label htmlFor={`tax-${item.id}`} className="text-xs text-muted-foreground cursor-pointer select-none">
+                      السعر شامل الضريبة (VAT)
+                    </label>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Truck className="h-3 w-3" /> مدة التوريد (أيام)
+                    </Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      placeholder="مثال: 14"
+                      value={prices[item.id]?.deliveryDays ?? ""}
+                      onChange={(e) => setField(item.id, "deliveryDays", e.target.value)}
+                      className="text-left font-mono"
                     />
                   </div>
                 </div>
@@ -257,7 +309,7 @@ export default function SupplierPortal() {
               <Label>ملاحظات عامة (اختياري)</Label>
               <Textarea
                 rows={3}
-                placeholder="أي ملاحظات عامة على العرض كالشروط والأحكام، مدة الصلاحية، الدفع..."
+                placeholder="الشروط والأحكام، مدة صلاحية العرض، شروط الدفع..."
                 value={generalNotes}
                 onChange={(e) => setGeneralNotes(e.target.value)}
               />
@@ -278,8 +330,9 @@ export default function SupplierPortal() {
                 }, 0).toLocaleString("ar-EG", { minimumFractionDigits: 2 })} ج.م
               </p>
             </div>
-            <div className="text-left text-sm text-muted-foreground">
+            <div className="text-left text-sm text-muted-foreground space-y-0.5">
               <p>بنود أُدخلت: <strong>{Object.values(prices).filter((p) => p.price).length}</strong> من {items.length}</p>
+              <p>شامل ضريبة: <strong>{Object.values(prices).filter((p) => p.taxIncluded && p.price).length}</strong> بند</p>
             </div>
           </div>
           <Button

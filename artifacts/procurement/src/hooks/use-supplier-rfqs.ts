@@ -302,3 +302,35 @@ export function useSendRfqEmail(rfqId: number, onSuccess: () => void) {
 
   return { send, isSending };
 }
+
+export interface BulkSendResult {
+  supplierId: number;
+  supplierName: string | null;
+  rfqId: number | null;
+  email: { status: string; reason: string | null };
+  whatsapp: { status: string; reason: string | null };
+}
+
+export function useSendBulk(inquiryId: number, onSuccess: () => void) {
+  const [isSending, setIsSending] = useState(false);
+
+  async function send(supplierIds: number[], closeDate?: string): Promise<BulkSendResult[]> {
+    setIsSending(true);
+    try {
+      const result = await customFetch<{ results: BulkSendResult[] }>(
+        `/api/inquiries/${inquiryId}/send-bulk`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ supplierIds, closeDate }),
+        }
+      );
+      onSuccess();
+      return result.results;
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  return { send, isSending };
+}

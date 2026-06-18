@@ -689,6 +689,133 @@ router.post("/supplier-rfqs/:id/send-whatsapp", async (req, res): Promise<void> 
   }
 });
 
+// POST /api/inquiries/:id/send-bulk — إرسال طلب التسعير لعدة موردين دفعة واحدة
+router.post("/inquiries/:id/send-bulk", async (req, res): Promise<void> => {
+  const inquiryId = Number(req.params.id);
+  if (isNaN(inquiryId)) { res.status(400).json({ error: "Invalid inquiryId" }); return; }
+
+  const { supplierIds, closeDate } = req.body as { supplierIds: number[]; closeDate?: string };
+  if (!Array.isArray(supplierIds) || supplierIds.length === 0) {
+    res.status(400).json({ error: "supplierIds array is required" });
+    return;
+  }
+
+  const [inquiry] = await db.select().from(inquiriesTable).where(eq(inquiriesTable.id, inquiryId));
+  if (!inquiry) { res.status(404).json({ error: "Inquiry not found" }); return; }
+
+  const inquiryItems = await db
+    .select({ description: inquiryItemsTable.description, quantity: inquiryItemsTable.quantity, unit: inquiryItemsTable.unit, notes: inquiryItemsTable.notes })
+    .from(inquiryItemsTable)
+    .where(eq(inquiryItemsTable.inquiryId, inquiryId));
+
+  const baseUrl = getBaseUrl(req);
+  const appBasePath = process.env.BASE_PATH?.replace(/\/$/, "") ?? "";
+
+  const results: {
+    supplierId: number;
+    supplierName: string | null;
+    rfqId: number | null;
+    email: { status: string; reason: string | null };
+    whatsapp: { status: string; reason: string | null };
+  }[] = [];
+
+  for (const supplierId of supplierIds) {
+    const [supplier] = await db
+      .select({ id: suppliersTable.id, name: suppliersTable.name, email: suppliersTable.email, phone: suppliersTable.phone })
+      .from(suppliersTable)
+      .where(eq(suppliersTable.id, supplierId));
+
+    if (!supplier) {
+      results.push({ supplierId, supplierName: null, rfqId: null, email: { status: "error", reason: "المورد غير موجود" }, whatsapp: { status: "error", reason: "المورد غير موجود" } });
+      continue;
+    }
+
+    // Get or create RFQ for this supplier + inquiry
+    let [rfq] = await db
+      .select()
+      .from(supplierRfqsTable)
+      .where(and(eq(supplierRfqsTable.inquiryId, inquiryId), eq(supplierRfqsTable.supplierId, supplierId)));
+
+    if (!rfq) {
+      const [newRfq] = await db.insert(supplierRfqsTable).values({
+        inquiryId,
+        supplierId,
+        status: "pending",
+      }).returning();
+      rfq = newRfq;
+    }
+
+    // Ensure token
+    let token = rfq.token;
+    if (!token) {
+      token = generateToken();
+      await db.update(supplierRfqsTable).set({ token }).where(eq(supplierRfqsTable.id, rfq.id));
+    }
+
+    if (closeDate) {
+      await db.update(supplierRfqsTable).set({ closeDate }).where(eq(supplierRfqsTable.id, rfq.id));
+    }
+
+    const portalUrl = `${baseUrl}${appBasePath}/portal/${token}`;
+    const emailResult: { status: string; reason: string | null } = { status: "no_email", reason: null };
+    const whatsappResult: { status: string; reason: string | null } = { status: "no_phone", reason: null };
+
+    // Send email
+    if (supplier.email) {
+      try {
+        await sendRfqEmail({
+          to: supplier.email,
+          toName: supplier.name ?? "المورد",
+          rfqNo: rfq.rfqNumber ?? String(rfq.id),
+          inquiryTitle: inquiry.title ?? "طلب تسعير",
+          items: inquiryItems.map((i) => ({
+            description: i.description,
+            quantity: i.quantity != null ? String(i.quantity) : null,
+            unit: i.unit,
+            notes: i.notes,
+          })),
+          portalUrl,
+          closeDate: closeDate || rfq.closeDate || "قريباً",
+          senderName: "فريق المشتريات",
+        });
+        emailResult.status = "sent";
+        await db.update(supplierRfqsTable).set({ status: "sent", emailStatus: "sent", emailSentAt: new Date() }).where(eq(supplierRfqsTable.id, rfq.id));
+      } catch (e: any) {
+        emailResult.status = "failed";
+        emailResult.reason = e.message;
+        await db.update(supplierRfqsTable).set({ emailStatus: "failed" }).where(eq(supplierRfqsTable.id, rfq.id));
+      }
+    }
+
+    // Send WhatsApp
+    if (supplier.phone) {
+      try {
+        await sendRfqWhatsApp({
+          phone: supplier.phone,
+          supplierName: supplier.name ?? "المورد",
+          rfqNumber: rfq.rfqNumber ?? String(rfq.id),
+          inquiryTitle: inquiry.title ?? "طلب تسعير",
+          closeDate: closeDate ?? rfq.closeDate,
+          items: inquiryItems.map((i) => ({ description: i.description, quantity: i.quantity, unit: i.unit })),
+          portalUrl,
+          companyName: process.env.COMPANY_NAME,
+        });
+        whatsappResult.status = "sent";
+        if (rfq.status === "pending") {
+          await db.update(supplierRfqsTable).set({ status: "sent" }).where(eq(supplierRfqsTable.id, rfq.id));
+        }
+      } catch (e: any) {
+        whatsappResult.status = "failed";
+        whatsappResult.reason = e.message;
+      }
+    }
+
+    results.push({ supplierId, supplierName: supplier.name, rfqId: rfq.id, email: emailResult, whatsapp: whatsappResult });
+  }
+
+  res.json({ results });
+});
+
 router.delete("/supplier-rfqs/:id", async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) {

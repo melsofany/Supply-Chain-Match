@@ -106,6 +106,8 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       inquiryItemId: p.inquiryItemId,
       quotedPrice: p.quotedPrice != null ? Number(p.quotedPrice) : null,
       notes: p.notes,
+      taxIncluded: p.taxIncluded,
+      deliveryDays: p.deliveryDays,
     })),
   });
 });
@@ -130,7 +132,7 @@ router.post("/portal/:token/submit", async (req, res): Promise<void> => {
   }
 
   const { items, generalNotes } = req.body as {
-    items: { inquiryItemId: number; quotedPrice: number | null; notes?: string }[];
+    items: { inquiryItemId: number; quotedPrice: number | null; notes?: string; taxIncluded?: boolean; deliveryDays?: number | null }[];
     generalNotes?: string;
   };
 
@@ -158,6 +160,8 @@ router.post("/portal/:token/submit", async (req, res): Promise<void> => {
         .set({
           quotedPrice: item.quotedPrice != null ? String(item.quotedPrice) : null,
           notes: item.notes ?? null,
+          taxIncluded: item.taxIncluded ?? false,
+          deliveryDays: item.deliveryDays ?? null,
         })
         .where(eq(supplierRfqItemsTable.id, existing.id));
     } else {
@@ -166,6 +170,8 @@ router.post("/portal/:token/submit", async (req, res): Promise<void> => {
         inquiryItemId: Number(item.inquiryItemId),
         quotedPrice: item.quotedPrice != null ? String(item.quotedPrice) : null,
         notes: item.notes ?? null,
+        taxIncluded: item.taxIncluded ?? false,
+        deliveryDays: item.deliveryDays ?? null,
       });
     }
   }
