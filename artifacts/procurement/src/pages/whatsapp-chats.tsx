@@ -1,14 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MessageCircle, Send, User, Building2, HelpCircle, Search, CheckCheck, Phone } from "lucide-react";
+import { customFetch } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/context/auth-context";
-
-const API = "/api";
 
 interface Chat {
   phone: string;
@@ -21,7 +18,7 @@ interface Chat {
   unread_count: number;
 }
 
-interface Message {
+interface WaMessage {
   id: number;
   phone: string;
   contact_name: string | null;
@@ -32,14 +29,9 @@ interface Message {
   created_at: string;
 }
 
-function apiHeaders(token: string) {
-  return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-}
-
 function timeAgo(dateStr: string): string {
   const d = new Date(dateStr);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / 1000);
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
   if (diff < 60) return "الآن";
   if (diff < 3600) return `${Math.floor(diff / 60)} د`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} س`;
@@ -64,8 +56,13 @@ function typeBadgeClass(type: string | null) {
   return "bg-slate-100 text-slate-600 border-slate-200";
 }
 
+function avatarBg(type: string | null) {
+  if (type === "customer") return "bg-blue-500";
+  if (type === "supplier") return "bg-orange-500";
+  return "bg-slate-400";
+}
+
 export default function WhatsAppChats() {
-  const { token } = useAuth() as any;
   const { toast } = useToast();
   const qc = useQueryClient();
   const [selectedPhone, setSelectedPhone] = useState<string | null>(null);
@@ -75,57 +72,37 @@ export default function WhatsAppChats() {
 
   const { data: chats = [], isLoading: chatsLoading } = useQuery<Chat[]>({
     queryKey: ["whatsapp-chats"],
-    queryFn: async () => {
-      const r = await fetch(`${API}/whatsapp-chats`, { headers: apiHeaders(token) });
-      if (!r.ok) throw new Error("فشل في تحميل المحادثات");
-      return r.json();
-    },
+    queryFn: () => customFetch<Chat[]>("/api/whatsapp-chats"),
     refetchInterval: 10000,
   });
 
-  const { data: messages = [], isLoading: msgsLoading } = useQuery<Message[]>({
+  const { data: messages = [], isLoading: msgsLoading } = useQuery<WaMessage[]>({
     queryKey: ["whatsapp-messages", selectedPhone],
-    queryFn: async () => {
-      const r = await fetch(`${API}/whatsapp-chats/${encodeURIComponent(selectedPhone!)}/messages`, {
-        headers: apiHeaders(token),
-      });
-      if (!r.ok) throw new Error("فشل في تحميل الرسائل");
-      return r.json();
-    },
+    queryFn: () =>
+      customFetch<WaMessage[]>(`/api/whatsapp-chats/${encodeURIComponent(selectedPhone!)}/messages`),
     enabled: !!selectedPhone,
     refetchInterval: 5000,
   });
 
   const markRead = useMutation({
-    mutationFn: async (phone: string) => {
-      await fetch(`${API}/whatsapp-chats/${encodeURIComponent(phone)}/read`, {
-        method: "POST", headers: apiHeaders(token),
-      });
-    },
+    mutationFn: (phone: string) =>
+      customFetch(`/api/whatsapp-chats/${encodeURIComponent(phone)}/read`, { method: "POST" }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["whatsapp-chats"] }),
   });
 
   const sendMutation = useMutation({
-    mutationFn: async ({ phone, body }: { phone: string; body: string }) => {
-      const r = await fetch(`${API}/whatsapp-chats/${encodeURIComponent(phone)}/send`, {
+    mutationFn: ({ phone, body }: { phone: string; body: string }) =>
+      customFetch(`/api/whatsapp-chats/${encodeURIComponent(phone)}/send`, {
         method: "POST",
-        headers: apiHeaders(token),
         body: JSON.stringify({ body }),
-      });
-      if (!r.ok) {
-        const err = await r.json().catch(() => ({}));
-        throw new Error(err.error ?? "فشل الإرسال");
-      }
-      return r.json();
-    },
+      }),
     onSuccess: () => {
       setReplyText("");
       qc.invalidateQueries({ queryKey: ["whatsapp-messages", selectedPhone] });
       qc.invalidateQueries({ queryKey: ["whatsapp-chats"] });
     },
-    onError: (err: any) => {
-      toast({ title: "خطأ", description: err.message, variant: "destructive" });
-    },
+    onError: (err: any) =>
+      toast({ title: "خطأ في الإرسال", description: err.message, variant: "destructive" }),
   });
 
   function selectChat(phone: string) {
@@ -143,8 +120,8 @@ export default function WhatsAppChats() {
   }, [messages]);
 
   const filteredChats = chats.filter((c) => {
-    const name = c.contact_name ?? c.phone;
-    return name.toLowerCase().includes(search.toLowerCase()) || c.phone.includes(search);
+    const name = (c.contact_name ?? c.phone).toLowerCase();
+    return name.includes(search.toLowerCase()) || c.phone.includes(search);
   });
 
   const selectedChat = chats.find((c) => c.phone === selectedPhone);
@@ -154,7 +131,6 @@ export default function WhatsAppChats() {
 
       {/* ── Sidebar: قائمة المحادثات ─────────────────────────────────────── */}
       <div className="w-80 shrink-0 border-l flex flex-col bg-white">
-        {/* Header */}
         <div className="p-4 border-b bg-[#1a2a3a]">
           <div className="flex items-center gap-2 mb-3">
             <MessageCircle className="h-5 w-5 text-green-400" />
@@ -171,7 +147,6 @@ export default function WhatsAppChats() {
           </div>
         </div>
 
-        {/* List */}
         <div className="flex-1 overflow-y-auto">
           {chatsLoading ? (
             <div className="p-3 space-y-2">
@@ -195,14 +170,9 @@ export default function WhatsAppChats() {
                     isActive ? "bg-blue-50 border-l-2 border-l-blue-500" : "hover:bg-slate-50"
                   }`}
                 >
-                  {/* Avatar */}
-                  <div className={`h-10 w-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white ${
-                    chat.contact_type === "customer" ? "bg-blue-500" :
-                    chat.contact_type === "supplier" ? "bg-orange-500" : "bg-slate-400"
-                  }`}>
+                  <div className={`h-10 w-10 rounded-full shrink-0 flex items-center justify-center text-sm font-bold text-white ${avatarBg(chat.contact_type)}`}>
                     {(name.charAt(0) || "?").toUpperCase()}
                   </div>
-
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-sm text-slate-800 truncate">{name}</span>
@@ -210,7 +180,7 @@ export default function WhatsAppChats() {
                     </div>
                     <div className="flex items-center justify-between mt-0.5">
                       <p className="text-xs text-slate-500 truncate flex-1">
-                        {chat.last_direction === "outbound" && <span className="text-blue-500 ml-1">↩</span>}
+                        {chat.last_direction === "outbound" && <span className="text-green-600 ml-1">↩</span>}
                         {chat.last_message}
                       </p>
                       {Number(chat.unread_count) > 0 && (
@@ -235,10 +205,7 @@ export default function WhatsAppChats() {
         <div className="flex-1 flex flex-col min-w-0 bg-[#f0f2f5]">
           {/* Chat header */}
           <div className="px-5 py-3 bg-white border-b flex items-center gap-3 shadow-sm">
-            <div className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white ${
-              selectedChat.contact_type === "customer" ? "bg-blue-500" :
-              selectedChat.contact_type === "supplier" ? "bg-orange-500" : "bg-slate-400"
-            }`}>
+            <div className={`h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white ${avatarBg(selectedChat.contact_type)}`}>
               {((selectedChat.contact_name ?? selectedChat.phone).charAt(0) || "?").toUpperCase()}
             </div>
             <div>
@@ -260,7 +227,7 @@ export default function WhatsAppChats() {
             {msgsLoading ? (
               <div className="space-y-3">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className={`flex ${i % 2 === 0 ? "justify-start" : "justify-end"}`}>
+                  <div key={i} className={`flex ${i % 2 === 0 ? "justify-end" : "justify-start"}`}>
                     <Skeleton className="h-10 w-48 rounded-2xl" />
                   </div>
                 ))}
@@ -271,23 +238,25 @@ export default function WhatsAppChats() {
               </div>
             ) : (
               messages.map((msg) => {
+                // outbound = رسائلنا نحن = يمين + أخضر
+                // inbound  = رسائل العميل/المورد = يسار + أبيض
                 const isOut = msg.direction === "outbound";
                 return (
-                  <div key={msg.id} className={`flex ${isOut ? "justify-start" : "justify-end"}`}>
+                  <div key={msg.id} className={`flex ${isOut ? "justify-end" : "justify-start"}`}>
                     <div
                       className={`max-w-[70%] px-3.5 py-2 rounded-2xl text-sm shadow-sm ${
                         isOut
-                          ? "bg-white text-slate-800 rounded-tr-sm"
-                          : "bg-[#dcf8c6] text-slate-800 rounded-tl-sm"
+                          ? "bg-[#dcf8c6] text-slate-800 rounded-tl-sm"
+                          : "bg-white text-slate-800 rounded-tr-sm"
                       }`}
                       style={{ wordBreak: "break-word", whiteSpace: "pre-wrap" }}
                     >
                       {msg.body}
-                      <div className={`flex items-center gap-1 mt-1 ${isOut ? "justify-start" : "justify-end"}`}>
+                      <div className={`flex items-center gap-1 mt-1 ${isOut ? "justify-end" : "justify-start"}`}>
                         <span className="text-[10px] text-slate-400">
                           {new Date(msg.created_at).toLocaleTimeString("ar-EG", { hour: "2-digit", minute: "2-digit" })}
                         </span>
-                        {!isOut && <CheckCheck className="h-3 w-3 text-blue-400" />}
+                        {isOut && <CheckCheck className="h-3 w-3 text-blue-400" />}
                       </div>
                     </div>
                   </div>
@@ -298,7 +267,17 @@ export default function WhatsAppChats() {
           </div>
 
           {/* Reply input */}
-          <div className="px-4 py-3 bg-white border-t flex items-end gap-2">
+          <div className="px-4 py-3 bg-white border-t flex items-center gap-2">
+            <Input
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              placeholder="اكتب رسالة..."
+              className="flex-1 rounded-full border-slate-200 bg-[#f0f2f5] text-sm"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+              }}
+              disabled={sendMutation.isPending}
+            />
             <Button
               onClick={handleSend}
               disabled={!replyText.trim() || sendMutation.isPending}
@@ -306,14 +285,6 @@ export default function WhatsAppChats() {
             >
               <Send className="h-4 w-4 rotate-180" />
             </Button>
-            <Input
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              placeholder="اكتب رسالة..."
-              className="flex-1 rounded-full border-slate-200 bg-[#f0f2f5] text-sm"
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-              disabled={sendMutation.isPending}
-            />
           </div>
         </div>
       ) : (

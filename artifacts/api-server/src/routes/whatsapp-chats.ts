@@ -15,8 +15,8 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
-function decodePhone(raw: string): string {
-  return decodeURIComponent(raw);
+function decodePhone(raw: string | string[]): string {
+  return decodeURIComponent(Array.isArray(raw) ? raw[0] : raw);
 }
 
 // ── GET /whatsapp-chats — قائمة المحادثات ────────────────────────────────────
