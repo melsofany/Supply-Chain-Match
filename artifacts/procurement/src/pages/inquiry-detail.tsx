@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Plus, Pencil, Trash2, FileText, Send, CheckCircle,
@@ -236,6 +236,15 @@ export default function InquiryDetail() {
   const [batchCategoryFilter, setBatchCategoryFilter] = useState("all");
   const [bulkResults, setBulkResults] = useState<BulkSendResult[] | null>(null);
 
+  /* ── Item selection for RFQ ── */
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (inquiry?.items && inquiry.items.length > 0) {
+      setSelectedItemIds(new Set(inquiry.items.map((i) => i.id)));
+    }
+  }, [inquiry?.id]);
+
   const { isUpdating: isUpdatingRfq, update: updateRfqFn } = useUpdateSupplierRfq(
     editingRfq?.id ?? 0,
     () => { refetchRfqs(); refetchComparison(); }
@@ -331,16 +340,33 @@ export default function InquiryDetail() {
     } else {
       addItem.mutate(
         { id: numId, data },
-        { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) }); setItemDialogOpen(false); toast({ title: "تمت إضافة البند" }); } }
+        {
+          onSuccess: (newItem: any) => {
+            qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) });
+            setItemDialogOpen(false);
+            toast({ title: "تمت إضافة البند" });
+            if (newItem?.id) {
+              setSelectedItemIds((prev) => new Set([...prev, newItem.id]));
+            }
+          },
+        }
       );
     }
   }
 
   function handleDeleteItem() {
     if (deleteItemId == null) return;
+    const idToDelete = deleteItemId;
     deleteItem.mutate(
-      { id: numId, itemId: deleteItemId },
-      { onSuccess: () => { qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) }); setDeleteItemId(null); toast({ title: "تم حذف البند" }); } }
+      { id: numId, itemId: idToDelete },
+      {
+        onSuccess: () => {
+          qc.invalidateQueries({ queryKey: getGetInquiryQueryKey(numId) });
+          setDeleteItemId(null);
+          toast({ title: "تم حذف البند" });
+          setSelectedItemIds((prev) => { const next = new Set(prev); next.delete(idToDelete); return next; });
+        },
+      }
     );
   }
 
@@ -409,9 +435,15 @@ export default function InquiryDetail() {
 
   async function handleBulkSend() {
     if (selectedSupplierIds.size === 0) return;
+    if (selectedItemIds.size === 0) {
+      toast({ title: "يجب تحديد بند واحد على الأقل لإرساله", variant: "destructive" });
+      return;
+    }
     setBulkResults(null);
+    const allItemIds = (inquiry?.items ?? []).map((i) => i.id);
+    const sendItemIds = selectedItemIds.size === allItemIds.length ? undefined : [...selectedItemIds];
     try {
-      const results = await sendBulk([...selectedSupplierIds], batchCloseDate || undefined);
+      const results = await sendBulk([...selectedSupplierIds], batchCloseDate || undefined, sendItemIds);
       setBulkResults(results);
       setSelectedSupplierIds(new Set());
       setBatchCloseDate("");
@@ -660,6 +692,19 @@ export default function InquiryDetail() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-xs text-muted-foreground">
+                    <th className="py-2 pr-2 w-8">
+                      <Checkbox
+                        checked={inquiry.items.length > 0 && inquiry.items.every((i) => selectedItemIds.has(i.id))}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedItemIds(new Set(inquiry.items.map((i) => i.id)));
+                          } else {
+                            setSelectedItemIds(new Set());
+                          }
+                        }}
+                        aria-label="تحديد الكل"
+                      />
+                    </th>
                     <th className="text-right py-2 pr-2 font-medium w-6">#</th>
                     <th className="text-right py-2 px-2 font-medium min-w-[180px]">الوصف</th>
                     <th className="text-right py-2 px-2 font-medium min-w-[110px]">
@@ -675,7 +720,23 @@ export default function InquiryDetail() {
                 </thead>
                 <tbody>
                   {inquiry.items.map((item, idx) => (
-                    <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/30" data-testid={`row-item-${item.id}`}>
+                    <tr
+                      key={item.id}
+                      className={`border-b last:border-b-0 hover:bg-muted/30 ${selectedItemIds.has(item.id) ? "" : "opacity-50"}`}
+                      data-testid={`row-item-${item.id}`}
+                    >
+                      <td className="py-3 pr-2">
+                        <Checkbox
+                          checked={selectedItemIds.has(item.id)}
+                          onCheckedChange={(checked) => {
+                            setSelectedItemIds((prev) => {
+                              const next = new Set(prev);
+                              checked ? next.add(item.id) : next.delete(item.id);
+                              return next;
+                            });
+                          }}
+                        />
+                      </td>
                       <td className="py-3 pr-2 text-muted-foreground text-xs">{idx + 1}</td>
                       <td className="py-3 px-2">
                         <p className="font-medium">{item.description}</p>
@@ -708,6 +769,16 @@ export default function InquiryDetail() {
                   ))}
                 </tbody>
               </table>
+              {inquiry.items.length > 0 && (
+                <p className="text-xs text-muted-foreground mt-2 text-center">
+                  {selectedItemIds.size === inquiry.items.length
+                    ? "جميع البنود محددة للإرسال"
+                    : selectedItemIds.size === 0
+                    ? <span className="text-amber-600 font-medium">لا توجد بنود محددة — حدد بنداً واحداً على الأقل للإرسال</span>
+                    : <span className="text-blue-600 font-medium">{selectedItemIds.size} من {inquiry.items.length} بند محدد للإرسال</span>
+                  }
+                </p>
+              )}
             </div>
           )}
         </CardContent>
@@ -725,6 +796,24 @@ export default function InquiryDetail() {
             اختر الموردين وأرسل لهم طلب التسعير دفعة واحدة عبر الإيميل والواتساب
             {rfqs.length > 0 && <span className="mr-1 font-medium text-blue-600">• {rfqs.length} في سجل الإرسال</span>}
           </p>
+          {inquiry.items.length > 0 && (
+            <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+              <span className="text-muted-foreground">البنود المرفقة:</span>
+              {selectedItemIds.size === 0 ? (
+                <span className="text-amber-600 font-medium">لا توجد بنود محددة</span>
+              ) : selectedItemIds.size === inquiry.items.length ? (
+                <span className="text-green-700 font-medium">جميع البنود ({inquiry.items.length})</span>
+              ) : (
+                <span className="text-blue-700 font-medium">{selectedItemIds.size} من {inquiry.items.length} بند</span>
+              )}
+              <button
+                className="text-muted-foreground underline hover:text-gray-700 mr-1"
+                onClick={() => setSelectedItemIds(new Set(inquiry.items.map((i) => i.id)))}
+              >
+                تحديد الكل
+              </button>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Category filter pills */}

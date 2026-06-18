@@ -694,7 +694,7 @@ router.post("/inquiries/:id/send-bulk", async (req, res): Promise<void> => {
   const inquiryId = Number(req.params.id);
   if (isNaN(inquiryId)) { res.status(400).json({ error: "Invalid inquiryId" }); return; }
 
-  const { supplierIds, closeDate } = req.body as { supplierIds: number[]; closeDate?: string };
+  const { supplierIds, closeDate, itemIds } = req.body as { supplierIds: number[]; closeDate?: string; itemIds?: number[] };
   if (!Array.isArray(supplierIds) || supplierIds.length === 0) {
     res.status(400).json({ error: "supplierIds array is required" });
     return;
@@ -703,10 +703,14 @@ router.post("/inquiries/:id/send-bulk", async (req, res): Promise<void> => {
   const [inquiry] = await db.select().from(inquiriesTable).where(eq(inquiriesTable.id, inquiryId));
   if (!inquiry) { res.status(404).json({ error: "Inquiry not found" }); return; }
 
-  const inquiryItems = await db
-    .select({ description: inquiryItemsTable.description, quantity: inquiryItemsTable.quantity, unit: inquiryItemsTable.unit, notes: inquiryItemsTable.notes })
+  const allInquiryItems = await db
+    .select({ id: inquiryItemsTable.id, description: inquiryItemsTable.description, quantity: inquiryItemsTable.quantity, unit: inquiryItemsTable.unit, notes: inquiryItemsTable.notes })
     .from(inquiryItemsTable)
     .where(eq(inquiryItemsTable.inquiryId, inquiryId));
+
+  const inquiryItems = (Array.isArray(itemIds) && itemIds.length > 0)
+    ? allInquiryItems.filter((i) => itemIds.includes(i.id))
+    : allInquiryItems;
 
   const baseUrl = getBaseUrl(req);
   const appBasePath = process.env.BASE_PATH?.replace(/\/$/, "") ?? "";

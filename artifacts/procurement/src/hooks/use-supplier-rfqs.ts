@@ -314,7 +314,7 @@ export interface BulkSendResult {
 export function useSendBulk(inquiryId: number, onSuccess: () => void) {
   const [isSending, setIsSending] = useState(false);
 
-  async function send(supplierIds: number[], closeDate?: string): Promise<BulkSendResult[]> {
+  async function send(supplierIds: number[], closeDate?: string, itemIds?: number[]): Promise<BulkSendResult[]> {
     setIsSending(true);
     try {
       const result = await customFetch<{ results: BulkSendResult[] }>(
@@ -322,7 +322,7 @@ export function useSendBulk(inquiryId: number, onSuccess: () => void) {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ supplierIds, closeDate }),
+          body: JSON.stringify({ supplierIds, closeDate, ...(itemIds && itemIds.length > 0 ? { itemIds } : {}) }),
         }
       );
       onSuccess();
