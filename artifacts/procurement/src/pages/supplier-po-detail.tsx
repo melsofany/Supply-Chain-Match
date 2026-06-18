@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Shield, Settings2, TrendingUp, TrendingDown, AlertTriangle, Receipt, FileText } from "lucide-react";
+import { ArrowLeft, Shield, Settings2, TrendingUp, TrendingDown, AlertTriangle, Receipt, FileText, MessageCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetSupplierPo,
@@ -53,6 +53,29 @@ export default function SupplierPoDetail() {
   const [costForm, setCostForm] = useState<CostForm>({
     insuranceRate: "", vatRate: "", withholdingTaxRate: "", stampDutyRate: "", operatingCost: "",
   });
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+
+  async function sendWhatsApp() {
+    setSendingWhatsApp(true);
+    try {
+      const res = await fetch(`/api/supplier-pos/${numId}/send-whatsapp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "فشل الإرسال", description: data.reason ?? data.error, variant: "destructive" });
+      } else {
+        toast({ title: "تم الإرسال بواتساب ✓", description: `أُرسل أمر التوريد لـ ${data.supplierName}` });
+        qc.invalidateQueries({ queryKey: getGetSupplierPoQueryKey(numId) });
+      }
+    } catch {
+      toast({ title: "خطأ في الإرسال", variant: "destructive" });
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  }
 
   function handleStatusChange(status: string) {
     updatePo.mutate(
@@ -161,6 +184,15 @@ export default function SupplierPoDetail() {
             )}
           </p>
         </div>
+        <Button
+          size="sm"
+          className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
+          onClick={sendWhatsApp}
+          disabled={sendingWhatsApp}
+        >
+          <MessageCircle className="h-4 w-4" />
+          {sendingWhatsApp ? "جاري الإرسال..." : "واتساب"}
+        </Button>
         <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${SUPPLIER_PO_STATUS_COLORS[po.status] ?? ""}`}>
           {SUPPLIER_PO_STATUS_LABELS[po.status] ?? po.status}
         </span>

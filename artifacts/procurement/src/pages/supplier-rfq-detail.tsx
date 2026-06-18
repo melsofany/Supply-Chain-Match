@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -26,6 +26,29 @@ export default function SupplierRfqDetail() {
 
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceForm, setPriceForm] = useState({ quotedPrice: "", notes: "" });
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+
+  async function sendWhatsApp() {
+    setSendingWhatsApp(true);
+    try {
+      const res = await fetch(`/api/supplier-rfqs/${numId}/send-whatsapp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "فشل الإرسال", description: data.reason ?? data.error, variant: "destructive" });
+      } else {
+        toast({ title: "تم الإرسال بواتساب ✓", description: `أُرسل طلب التسعير لـ ${data.supplierName}` });
+        mutate();
+      }
+    } catch {
+      toast({ title: "خطأ في الإرسال", variant: "destructive" });
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  }
 
   function openEditPrice() {
     if (!rfq) return;
@@ -85,6 +108,15 @@ export default function SupplierRfqDetail() {
             )}
           </p>
         </div>
+        <Button
+          size="sm"
+          className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
+          onClick={sendWhatsApp}
+          disabled={sendingWhatsApp}
+        >
+          <MessageCircle className="h-4 w-4" />
+          {sendingWhatsApp ? "جاري الإرسال..." : "واتساب"}
+        </Button>
         <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${SUPPLIER_RFQ_STATUS_COLORS[rfq.status] ?? ""}`}>
           {SUPPLIER_RFQ_STATUS_LABELS[rfq.status] ?? rfq.status}
         </span>

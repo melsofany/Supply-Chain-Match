@@ -15,6 +15,7 @@ import {
 import { generateToken } from "../lib/token";
 import { sendRfqEmail } from "../lib/email";
 import { generateRfqPdf } from "../lib/rfqPdf";
+import { sendRfqWhatsApp } from "../lib/whatsapp";
 
 const router: IRouter = Router();
 
@@ -599,6 +600,93 @@ router.get("/supplier-rfqs/:id/pdf", async (req, res): Promise<void> => {
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
   res.send(pdfBuffer);
+});
+
+// POST /api/supplier-rfqs/:id/send-whatsapp — إرسال طلب التسعير بواتساب
+router.post("/supplier-rfqs/:id/send-whatsapp", async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const { closeDate } = req.body as { closeDate?: string };
+
+  const [row] = await db
+    .select({
+      rfq: supplierRfqsTable,
+      supplierName: suppliersTable.name,
+      supplierPhone: suppliersTable.phone,
+      inquiryTitle: inquiriesTable.title,
+    })
+    .from(supplierRfqsTable)
+    .leftJoin(suppliersTable, eq(supplierRfqsTable.supplierId, suppliersTable.id))
+    .leftJoin(inquiriesTable, eq(supplierRfqsTable.inquiryId, inquiriesTable.id))
+    .where(eq(supplierRfqsTable.id, id));
+
+  if (!row) { res.status(404).json({ error: "RFQ not found" }); return; }
+
+  if (!row.supplierPhone) {
+    res.status(400).json({
+      status: "no_phone",
+      reason: `المورد "${row.supplierName}" ليس لديه رقم هاتف مسجّل`,
+    });
+    return;
+  }
+
+  // Generate token if not exists
+  let token = row.rfq.token;
+  if (!token) {
+    token = generateToken();
+    await db.update(supplierRfqsTable).set({ token }).where(eq(supplierRfqsTable.id, id));
+  }
+
+  const baseUrl = getBaseUrl(req);
+  const appBasePath = process.env.BASE_PATH?.replace(/\/$/, "") ?? "";
+  const portalUrl = `${baseUrl}${appBasePath}/portal/${token}`;
+
+  const items = await db
+    .select({
+      description: inquiryItemsTable.description,
+      quantity: inquiryItemsTable.quantity,
+      unit: inquiryItemsTable.unit,
+    })
+    .from(inquiryItemsTable)
+    .where(eq(inquiryItemsTable.inquiryId, row.rfq.inquiryId));
+
+  try {
+    await sendRfqWhatsApp({
+      phone: row.supplierPhone,
+      supplierName: row.supplierName ?? "المورد",
+      rfqNumber: row.rfq.rfqNumber ?? String(id),
+      inquiryTitle: row.inquiryTitle ?? "طلب تسعير",
+      closeDate: closeDate ?? row.rfq.closeDate,
+      items: items.map((i) => ({
+        description: i.description,
+        quantity: i.quantity,
+        unit: i.unit,
+      })),
+      portalUrl,
+      companyName: process.env.COMPANY_NAME,
+    });
+
+    await db.update(supplierRfqsTable).set({
+      status: row.rfq.status === "pending" ? "sent" : row.rfq.status,
+      closeDate: closeDate ?? row.rfq.closeDate,
+    }).where(eq(supplierRfqsTable.id, id));
+
+    res.json({
+      rfqId: id,
+      supplierName: row.supplierName,
+      status: "sent",
+      portalUrl,
+      reason: null,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      rfqId: id,
+      supplierName: row.supplierName,
+      status: "failed",
+      reason: err.message ?? "WhatsApp send failed",
+    });
+  }
 });
 
 router.delete("/supplier-rfqs/:id", async (req, res): Promise<void> => {

@@ -14,6 +14,7 @@ import {
   UpdateSupplierPoResponse,
 } from "@workspace/api-zod";
 import { validate, parseAmount } from "../lib/route-helpers";
+import { sendPoWhatsApp } from "../lib/whatsapp";
 
 const router: IRouter = Router();
 
@@ -237,6 +238,61 @@ router.patch("/supplier-pos/:id", async (req, res): Promise<void> => {
     .returning();
   if (!po) { res.status(404).json({ error: "Supplier PO not found" }); return; }
   res.json(UpdateSupplierPoResponse.parse(enrichSupplierPo({ ...po, supplierName: null })));
+});
+
+// POST /api/supplier-pos/:id/send-whatsapp — إرسال أمر التوريد بواتساب
+router.post("/supplier-pos/:id/send-whatsapp", async (req, res): Promise<void> => {
+  const { id } = validate(GetSupplierPoParams, req.params);
+
+  const [po] = await db
+    .select({
+      id: supplierPosTable.id,
+      supplierId: supplierPosTable.supplierId,
+      supplierName: suppliersTable.name,
+      supplierPhone: suppliersTable.phone,
+      poNumber: supplierPosTable.poNumber,
+      totalAmount: supplierPosTable.totalAmount,
+      notes: supplierPosTable.notes,
+      status: supplierPosTable.status,
+    })
+    .from(supplierPosTable)
+    .leftJoin(suppliersTable, eq(supplierPosTable.supplierId, suppliersTable.id))
+    .where(eq(supplierPosTable.id, id));
+
+  if (!po) { res.status(404).json({ error: "Supplier PO not found" }); return; }
+
+  if (!po.supplierPhone) {
+    res.status(400).json({
+      status: "no_phone",
+      reason: `المورد "${po.supplierName}" ليس لديه رقم هاتف مسجّل`,
+    });
+    return;
+  }
+
+  try {
+    await sendPoWhatsApp({
+      phone: po.supplierPhone,
+      supplierName: po.supplierName ?? "المورد",
+      poNumber: po.poNumber ?? `PO-${po.id}`,
+      totalAmount: Number(po.totalAmount ?? 0),
+      notes: po.notes,
+      companyName: process.env.COMPANY_NAME,
+    });
+
+    await db
+      .update(supplierPosTable)
+      .set({ status: po.status === "draft" ? "sent" : po.status })
+      .where(eq(supplierPosTable.id, id));
+
+    res.json({ poId: id, supplierName: po.supplierName, status: "sent", reason: null });
+  } catch (err: any) {
+    res.status(500).json({
+      poId: id,
+      supplierName: po.supplierName,
+      status: "failed",
+      reason: err.message ?? "WhatsApp send failed",
+    });
+  }
 });
 
 export default router;
