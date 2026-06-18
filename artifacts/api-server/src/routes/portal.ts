@@ -36,6 +36,7 @@ router.get("/portal/:token", async (req, res): Promise<void> => {
       notes: supplierRfqsTable.notes,
       offerSubmitted: supplierRfqsTable.offerSubmitted,
       offerSubmittedAt: supplierRfqsTable.offerSubmittedAt,
+      firstOpenedAt: supplierRfqsTable.firstOpenedAt,
     })
     .from(supplierRfqsTable)
     .leftJoin(suppliersTable, eq(supplierRfqsTable.supplierId, suppliersTable.id))

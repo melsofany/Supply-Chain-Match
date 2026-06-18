@@ -12,6 +12,8 @@ import {
   getGroupSummary,
   processJobs,
 } from "ledgerstack-core";
+
+type VoucherType = "JOURNAL" | "PAYMENT" | "RECEIPT" | "SALES" | "PURCHASE" | "CONTRA" | "OPENING" | "ADJUSTMENT";
 import {
   companyId,
   getYearId,
@@ -257,9 +259,8 @@ router.post("/accounting/ledger/vouchers", async (req, res): Promise<void> => {
 
   const result = await createVoucher({
     company_id: companyId,
-    year_id: yearId,
     reference_id: ref,
-    voucher_type: voucher_type || "JOURNAL",
+    voucher_type: (voucher_type || "JOURNAL") as VoucherType,
     date,
     narration: narration || "قيد يومي",
     entries: entries.map((e) => ({

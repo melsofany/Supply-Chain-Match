@@ -565,12 +565,13 @@ router.get("/supplier-rfqs/:id/pdf", async (req, res): Promise<void> => {
 
   const rfqItems = await db
     .select({
-      description: supplierRfqItemsTable.description,
-      quantity: supplierRfqItemsTable.quantity,
-      unit: supplierRfqItemsTable.unit,
+      description: inquiryItemsTable.description,
+      quantity: inquiryItemsTable.quantity,
+      unit: inquiryItemsTable.unit,
       notes: supplierRfqItemsTable.notes,
     })
     .from(supplierRfqItemsTable)
+    .leftJoin(inquiryItemsTable, eq(supplierRfqItemsTable.inquiryItemId, inquiryItemsTable.id))
     .where(eq(supplierRfqItemsTable.rfqId, id));
 
   // Build portal URL if token exists
@@ -585,7 +586,7 @@ router.get("/supplier-rfqs/:id/pdf", async (req, res): Promise<void> => {
     closeDate: row.closeDate,
     supplierName: row.supplierName ?? "—",
     items: rfqItems.map((item) => ({
-      description: item.description,
+      description: item.description ?? "",
       quantity: item.quantity,
       unit: item.unit,
       notes: item.notes,

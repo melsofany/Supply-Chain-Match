@@ -91,7 +91,7 @@ export default function SupplierPoDetail() {
       return;
     }
     updatePo.mutate(
-      { id: numId, data: { insuranceRate: ins, vatRate: vat, withholdingTaxRate: wht, stampDutyRate: stamp, operatingCost: opCost } },
+      { id: numId, data: { taxInsuranceRate: ins, operatingCost: opCost } },
       {
         onSuccess: () => {
           qc.invalidateQueries({ queryKey: getGetSupplierPoQueryKey(numId) });

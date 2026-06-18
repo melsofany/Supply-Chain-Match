@@ -87,7 +87,7 @@ async function ensureCompanyAndYear(adapter: any) {
   );
 
   if (!currentYear) {
-    const year = await createYear(COMPANY_ID, yearStart, yearEnd, yearName);
+    const year = await createYear(COMPANY_ID, yearStart, yearEnd);
     await setActiveYear(COMPANY_ID, year.id);
     logger.info({ yearId: year.id }, "Created financial year");
     return { yearId: year.id };
@@ -293,7 +293,6 @@ export async function postInvoiceJournalEntry(params: {
 
   await createVoucher({
     company_id: COMPANY_ID,
-    year_id: yearId,
     reference_id: params.invoiceNumber,
     voucher_type: "SALES",
     date: params.invoiceDate,
@@ -384,7 +383,6 @@ export async function postSupplierPoJournalEntry(params: {
 
   await createVoucher({
     company_id: COMPANY_ID,
-    year_id: yearId,
     reference_id: params.poNumber,
     voucher_type: "PURCHASE",
     date: params.poDate,
