@@ -19,7 +19,7 @@ export interface RfqPdfOptions {
 
 function getFontPath(): string {
   const currentDir = dirname(fileURLToPath(import.meta.url));
-  return resolve(currentDir, "assets/fonts/Amiri-Regular.ttf");
+  return resolve(currentDir, "assets/fonts/Amiri-Regular.woff");
 }
 
 function formatDate(d?: string | null): string {
