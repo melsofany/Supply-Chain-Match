@@ -252,6 +252,7 @@ router.post("/inquiries/:id/quotation-from-rfqs", async (req, res): Promise<void
       inquiryItemId: number;
       supplierId: number | null;
       unitPrice: number;
+      sellingPrice?: number | null;
       rfqId: number | null;
     }[];
   } = req.body;
@@ -292,8 +293,8 @@ router.post("/inquiries/:id/quotation-from-rfqs", async (req, res): Promise<void
     const item = itemMap.get(Number(sel.inquiryItemId));
     if (!item) continue;
     const qty = Number(item.quantity);
-    const unitPrice = Number(sel.unitPrice);
-    const totalPrice = qty * unitPrice;
+    const costPrice = Number(sel.unitPrice);
+    const sellingPrice = sel.sellingPrice != null ? Number(sel.sellingPrice) : costPrice;
 
     await db
       .insert(quotationItemsTable)
@@ -302,7 +303,7 @@ router.post("/inquiries/:id/quotation-from-rfqs", async (req, res): Promise<void
         description: item.description,
         quantity: String(qty),
         unit: item.unit ?? null,
-        unitPrice: String(unitPrice),
+        unitPrice: String(sellingPrice),
         supplierId: sel.supplierId ?? null,
         notes: item.notes ?? null,
       });
@@ -312,7 +313,7 @@ router.post("/inquiries/:id/quotation-from-rfqs", async (req, res): Promise<void
       supplierId: sel.supplierId ?? null,
       customerId: inquiry.customerId,
       quotationId: quotation.id,
-      unitPrice: String(unitPrice),
+      unitPrice: String(costPrice),
       quantity: String(qty),
       unit: item.unit ?? null,
       resultedInPo: false,

@@ -223,7 +223,7 @@ export default function InquiryDetail() {
 
   /* ── Quotation builder dialog ── */
   const [quotationDialogOpen, setQuotationDialogOpen] = useState(false);
-  const [selectedPrices, setSelectedPrices] = useState<Record<number, { rfqId: number; supplierId: number | null; unitPrice: number } | null>>({});
+  const [selectedPrices, setSelectedPrices] = useState<Record<number, { rfqId: number; supplierId: number | null; unitPrice: number; sellingPrice: number } | null>>({});
 
   /* ── Email dialog ── */
   const [sendEmailDialogRfq, setSendEmailDialogRfq] = useState<SupplierRfq | null>(null);
@@ -549,6 +549,7 @@ export default function InquiryDetail() {
         inquiryItemId: Number(itemId),
         supplierId: v!.supplierId,
         unitPrice: v!.unitPrice,
+        sellingPrice: v!.sellingPrice,
         rfqId: v!.rfqId,
       }));
 
@@ -1318,17 +1319,32 @@ export default function InquiryDetail() {
                 </span>{" "}
                 من {comparison.items.length}
               </span>
-              <span className="font-bold text-[#1e6fa8] text-base">
-                الإجمالي:{" "}
-                {Object.entries(selectedPrices)
-                  .filter(([, v]) => v != null)
-                  .reduce((sum, [itemId, v]) => {
-                    const it = comparison.items.find((i) => i.id === Number(itemId));
-                    return sum + (it ? it.quantity * v!.unitPrice : 0);
-                  }, 0)
-                  .toLocaleString()}{" "}
-                ج.م
-              </span>
+              <div className="flex items-center gap-6">
+                <span className="text-muted-foreground">
+                  تكلفة الشراء:{" "}
+                  <span className="font-semibold text-gray-700">
+                    {Object.entries(selectedPrices)
+                      .filter(([, v]) => v != null)
+                      .reduce((sum, [itemId, v]) => {
+                        const it = comparison.items.find((i) => i.id === Number(itemId));
+                        return sum + (it ? it.quantity * v!.unitPrice : 0);
+                      }, 0)
+                      .toLocaleString()}{" "}
+                    ج.م
+                  </span>
+                </span>
+                <span className="font-bold text-[#1e6fa8] text-base">
+                  إجمالي العرض:{" "}
+                  {Object.entries(selectedPrices)
+                    .filter(([, v]) => v != null)
+                    .reduce((sum, [itemId, v]) => {
+                      const it = comparison.items.find((i) => i.id === Number(itemId));
+                      return sum + (it ? it.quantity * v!.sellingPrice : 0);
+                    }, 0)
+                    .toLocaleString()}{" "}
+                  ج.م
+                </span>
+              </div>
             </div>
           )}
 
@@ -1338,10 +1354,13 @@ export default function InquiryDetail() {
               <table className="w-full text-sm border-collapse">
                 <thead className="sticky top-0 z-10">
                   <tr className="bg-gray-100 border-b-2 border-gray-200">
-                    <th className="text-right px-4 py-2.5 font-semibold text-gray-700 min-w-[180px]">البند</th>
+                    <th className="text-right px-4 py-2.5 font-semibold text-gray-700 min-w-[160px]">البند</th>
                     <th className="text-center px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">الكمية</th>
-                    <th className="text-center px-3 py-2.5 font-semibold text-gray-700 min-w-[300px]">اختيار المورد والسعر</th>
-                    <th className="text-center px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">سعر الوحدة</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-700 min-w-[240px]">اختيار المورد</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">سعر الشراء</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-[#1e6fa8] whitespace-nowrap min-w-[130px]">
+                      سعر البيع للعميل
+                    </th>
                     <th className="text-center px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">الإجمالي</th>
                   </tr>
                 </thead>
@@ -1403,7 +1422,12 @@ export default function InquiryDetail() {
                                   key={opt.rfqId}
                                   onClick={() => setSelectedPrices((prev) => ({
                                     ...prev,
-                                    [item.id]: isSelected ? null : { rfqId: opt.rfqId, supplierId: opt.supplierId, unitPrice: opt.unitPrice },
+                                    [item.id]: isSelected ? null : {
+                                      rfqId: opt.rfqId,
+                                      supplierId: opt.supplierId,
+                                      unitPrice: opt.unitPrice,
+                                      sellingPrice: prev[item.id]?.sellingPrice ?? opt.unitPrice,
+                                    },
                                   }))}
                                   className={`flex items-center gap-1 px-2.5 py-1 rounded border text-xs font-medium transition-all ${
                                     isSelected
@@ -1434,19 +1458,46 @@ export default function InquiryDetail() {
                           </div>
                         </td>
 
-                        {/* Unit price */}
+                        {/* Supplier cost price */}
                         <td className="px-3 py-3 text-center">
                           {selected ? (
-                            <span className="font-semibold text-gray-800">{selected.unitPrice.toLocaleString()} ج.م</span>
+                            <span className="font-medium text-gray-500 text-xs">{selected.unitPrice.toLocaleString()} ج.م</span>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}
                         </td>
 
-                        {/* Row total */}
+                        {/* Selling price to customer — editable */}
                         <td className="px-3 py-3 text-center">
-                          {totalPrice != null ? (
-                            <span className="font-bold text-[#1e6fa8]">{totalPrice.toLocaleString()} ج.م</span>
+                          {selected ? (
+                            <div className="flex items-center gap-1 justify-center">
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={selected.sellingPrice}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  setSelectedPrices((prev) => ({
+                                    ...prev,
+                                    [item.id]: prev[item.id] ? { ...prev[item.id]!, sellingPrice: val } : null,
+                                  }));
+                                }}
+                                className="w-24 text-center border border-[#1e6fa8] rounded px-2 py-1 text-sm font-semibold text-[#1e6fa8] focus:outline-none focus:ring-1 focus:ring-[#1e6fa8]"
+                              />
+                              <span className="text-xs text-gray-500">ج.م</span>
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+
+                        {/* Row total (based on selling price) */}
+                        <td className="px-3 py-3 text-center">
+                          {selected ? (
+                            <span className="font-bold text-[#1e6fa8]">
+                              {(item.quantity * selected.sellingPrice).toLocaleString()} ج.م
+                            </span>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}
@@ -1459,15 +1510,15 @@ export default function InquiryDetail() {
                 {/* Grand total footer */}
                 <tfoot>
                   <tr className="bg-gray-50 border-t-2 border-gray-200">
-                    <td colSpan={4} className="px-4 py-3 text-right font-semibold text-gray-700">
-                      الإجمالي الكلي لعرض السعر
+                    <td colSpan={5} className="px-4 py-3 text-right font-semibold text-gray-700">
+                      الإجمالي الكلي لعرض السعر للعميل
                     </td>
                     <td className="px-3 py-3 text-center font-bold text-[#1e6fa8] text-base">
                       {Object.entries(selectedPrices)
                         .filter(([, v]) => v != null)
                         .reduce((sum, [itemId, v]) => {
                           const it = comparison.items.find((i) => i.id === Number(itemId));
-                          return sum + (it ? it.quantity * v!.unitPrice : 0);
+                          return sum + (it ? it.quantity * v!.sellingPrice : 0);
                         }, 0)
                         .toLocaleString()}{" "}
                       ج.م

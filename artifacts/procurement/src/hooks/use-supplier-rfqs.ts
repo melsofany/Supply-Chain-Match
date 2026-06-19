@@ -250,6 +250,7 @@ export function useCreateQuotationFromRfqs(inquiryId: number) {
       inquiryItemId: number;
       supplierId: number | null;
       unitPrice: number;
+      sellingPrice: number;
       rfqId: number | null;
     }[]
   ) {
