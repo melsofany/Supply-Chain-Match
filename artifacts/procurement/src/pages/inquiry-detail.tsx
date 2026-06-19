@@ -1292,14 +1292,14 @@ export default function InquiryDetail() {
       <Dialog open={quotationDialogOpen} onOpenChange={setQuotationDialogOpen}>
         <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-l from-green-700 to-green-800 px-6 py-4">
+          <div className="bg-gradient-to-l from-[#1e6fa8] to-[#17527d] px-6 py-4">
             <div className="flex items-center gap-3">
               <div className="bg-white/15 rounded-lg p-2">
                 <FileText className="h-5 w-5 text-white" />
               </div>
               <div>
                 <h2 className="text-white font-bold text-base">إعداد عرض السعر للعميل</h2>
-                <p className="text-green-100 text-xs mt-0.5">
+                <p className="text-blue-100 text-xs mt-0.5">
                   اختر لكل بند المورد الأنسب — النجمة{" "}
                   <Star className="h-3 w-3 inline fill-amber-300 text-amber-300" />{" "}
                   تدل على أقل سعر مُقدَّم
@@ -1318,7 +1318,7 @@ export default function InquiryDetail() {
                 </span>{" "}
                 من {comparison.items.length}
               </span>
-              <span className="font-bold text-green-800 text-base">
+              <span className="font-bold text-[#1e6fa8] text-base">
                 الإجمالي:{" "}
                 {Object.entries(selectedPrices)
                   .filter(([, v]) => v != null)
@@ -1365,7 +1365,7 @@ export default function InquiryDetail() {
                       <tr
                         key={item.id}
                         className={`transition-colors ${
-                          isSkipped ? "bg-gray-50 opacity-60" : selected ? "bg-green-50/40" : "bg-white hover:bg-blue-50/20"
+                          isSkipped ? "bg-gray-50 opacity-60" : selected ? "bg-blue-50/40" : "bg-white hover:bg-blue-50/20"
                         }`}
                       >
                         {/* Item description */}
@@ -1407,15 +1407,15 @@ export default function InquiryDetail() {
                                   }))}
                                   className={`flex items-center gap-1 px-2.5 py-1 rounded border text-xs font-medium transition-all ${
                                     isSelected
-                                      ? "bg-green-600 text-white border-green-600 shadow-sm"
-                                      : "bg-white border-gray-200 text-gray-700 hover:border-green-400 hover:bg-green-50"
+                                      ? "bg-[#1e6fa8] text-white border-[#1e6fa8] shadow-sm"
+                                      : "bg-white border-gray-200 text-gray-700 hover:border-[#1e6fa8] hover:bg-blue-50"
                                   }`}
                                 >
                                   {isLowest && (
-                                    <Star className={`h-3 w-3 flex-shrink-0 ${isSelected ? "fill-amber-300 text-amber-300" : "fill-green-500 text-green-500"}`} />
+                                    <Star className={`h-3 w-3 flex-shrink-0 ${isSelected ? "fill-amber-300 text-amber-300" : "fill-amber-400 text-amber-400"}`} />
                                   )}
                                   <span className="max-w-[90px] truncate">{opt.supplierName ?? `#${opt.supplierId}`}</span>
-                                  <span className={`font-bold ${isSelected ? "text-green-100" : "text-green-700"}`}>
+                                  <span className={`font-bold ${isSelected ? "text-blue-100" : "text-[#1e6fa8]"}`}>
                                     {opt.unitPrice.toLocaleString()}
                                   </span>
                                 </button>
@@ -1446,7 +1446,7 @@ export default function InquiryDetail() {
                         {/* Row total */}
                         <td className="px-3 py-3 text-center">
                           {totalPrice != null ? (
-                            <span className="font-bold text-green-700">{totalPrice.toLocaleString()} ج.م</span>
+                            <span className="font-bold text-[#1e6fa8]">{totalPrice.toLocaleString()} ج.م</span>
                           ) : (
                             <span className="text-gray-300">—</span>
                           )}
@@ -1462,7 +1462,7 @@ export default function InquiryDetail() {
                     <td colSpan={4} className="px-4 py-3 text-right font-semibold text-gray-700">
                       الإجمالي الكلي لعرض السعر
                     </td>
-                    <td className="px-3 py-3 text-center font-bold text-green-800 text-base">
+                    <td className="px-3 py-3 text-center font-bold text-[#1e6fa8] text-base">
                       {Object.entries(selectedPrices)
                         .filter(([, v]) => v != null)
                         .reduce((sum, [itemId, v]) => {
@@ -1489,7 +1489,7 @@ export default function InquiryDetail() {
                 size="sm"
                 onClick={handleCreateQuotationFromRfqs}
                 disabled={isCreatingFromRfqs}
-                className="bg-green-700 hover:bg-green-800 text-white gap-2"
+                className="bg-[#1e6fa8] hover:bg-[#17527d] text-white gap-2"
               >
                 <FileText className="h-4 w-4" />
                 {isCreatingFromRfqs ? "جارٍ الإنشاء..." : "إنشاء عرض السعر"}
