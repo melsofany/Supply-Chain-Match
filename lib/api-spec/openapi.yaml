@@ -1755,6 +1755,8 @@ components:
           type: ["string", "null"]
         quotationId:
           type: ["integer", "null"]
+        quotationNumber:
+          type: ["string", "null"]
         poNumber:
           type: ["string", "null"]
         status:

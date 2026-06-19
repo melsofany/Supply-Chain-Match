@@ -6,8 +6,10 @@ import {
   useListCustomerPos,
   useListCustomers,
   useCreateCustomerPo,
+  useListQuotations,
   getListCustomerPosQueryKey,
   getListCustomersQueryKey,
+  getListQuotationsQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,13 +38,16 @@ export default function CustomerPos() {
   const { data: customers } = useListCustomers({
     query: { queryKey: getListCustomersQueryKey() },
   });
+  const { data: quotations } = useListQuotations({
+    query: { queryKey: getListQuotationsQueryKey() },
+  });
 
   const createMutation = useCreateCustomerPo();
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ customerId: "", poNumber: "", totalAmount: "", notes: "" });
+  const [form, setForm] = useState({ customerId: "", quotationId: "", poNumber: "", totalAmount: "", notes: "" });
 
   const filtered = (pos ?? []).filter((p) => {
     const matchSearch =
@@ -54,13 +59,14 @@ export default function CustomerPos() {
 
   function handleCreate() {
     if (!form.customerId) {
-      toast({ title: "Customer is required", variant: "destructive" });
+      toast({ title: "يرجى اختيار العميل", variant: "destructive" });
       return;
     }
     createMutation.mutate(
       {
         data: {
           customerId: Number(form.customerId),
+          ...(form.quotationId && { quotationId: Number(form.quotationId) }),
           ...(form.poNumber && { poNumber: form.poNumber }),
           ...(form.totalAmount && { totalAmount: Number(form.totalAmount) }),
           ...(form.notes && { notes: form.notes }),
@@ -71,7 +77,8 @@ export default function CustomerPos() {
         onSuccess: (newPo) => {
           qc.invalidateQueries({ queryKey: getListCustomerPosQueryKey() });
           setDialogOpen(false);
-          toast({ title: "Customer PO created" });
+          setForm({ customerId: "", quotationId: "", poNumber: "", totalAmount: "", notes: "" });
+          toast({ title: "تم إنشاء أمر الشراء بنجاح" });
           setLocation(`/customer-pos/${newPo.id}`);
         },
       }
@@ -154,37 +161,56 @@ export default function CustomerPos() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) setForm({ customerId: "", quotationId: "", poNumber: "", totalAmount: "", notes: "" }); }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>New Customer PO</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>إنشاء أمر شراء عميل جديد</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <Label>Customer *</Label>
+              <Label>العميل *</Label>
               <Select value={form.customerId} onValueChange={(v) => setForm({ ...form, customerId: v })}>
-                <SelectTrigger><SelectValue placeholder="Select customer..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="اختر العميل..." /></SelectTrigger>
                 <SelectContent>
                   {(customers ?? []).map((c) => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
+            <div className="space-y-1.5">
+              <Label>رقم طلب التسعير المرجعي</Label>
+              <Select value={form.quotationId} onValueChange={(v) => setForm({ ...form, quotationId: v === "none" ? "" : v })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="اختر عرض السعر المرتبط..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">— بدون ربط —</SelectItem>
+                  {(quotations ?? [])
+                    .filter((q) => q.status === "approved" || q.status === "draft")
+                    .map((q) => (
+                      <SelectItem key={q.id} value={String(q.id)}>
+                        {q.quotationNumber ?? `عرض سعر #${q.id}`}
+                        {q.customerName ? ` — ${q.customerName}` : ""}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label>PO Number</Label>
+                <Label>رقم أمر الشراء</Label>
                 <Input value={form.poNumber} onChange={(e) => setForm({ ...form, poNumber: e.target.value })} placeholder="PO-2024-001" />
               </div>
               <div className="space-y-1.5">
-                <Label>Total Amount</Label>
-                <Input type="number" value={form.totalAmount} onChange={(e) => setForm({ ...form, totalAmount: e.target.value })} />
+                <Label>إجمالي المبلغ</Label>
+                <Input type="number" value={form.totalAmount} onChange={(e) => setForm({ ...form, totalAmount: e.target.value })} placeholder="0.00" />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label>Notes</Label>
+              <Label>ملاحظات</Label>
               <Textarea rows={2} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={createMutation.isPending} data-testid="button-submit-customer-po">Create</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>إلغاء</Button>
+            <Button onClick={handleCreate} disabled={createMutation.isPending} data-testid="button-submit-customer-po">إنشاء</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

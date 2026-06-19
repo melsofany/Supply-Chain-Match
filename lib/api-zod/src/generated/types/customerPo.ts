@@ -15,6 +15,8 @@ export interface CustomerPo {
   /** @nullable */
   quotationId?: number | null;
   /** @nullable */
+  quotationNumber?: string | null;
+  /** @nullable */
   poNumber?: string | null;
   status: CustomerPoStatus;
   /** @nullable */

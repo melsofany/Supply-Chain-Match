@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, customerPosTable, supplierPosTable, customersTable, suppliersTable, quotationItemsTable } from "@workspace/db";
+import { db, customerPosTable, supplierPosTable, customersTable, suppliersTable, quotationItemsTable, quotationsTable } from "@workspace/db";
 import {
   CreateCustomerPoBody,
   GetCustomerPoParams,
@@ -69,6 +69,7 @@ router.get("/customer-pos", async (req, res): Promise<void> => {
       customerId: customerPosTable.customerId,
       customerName: customersTable.name,
       quotationId: customerPosTable.quotationId,
+      quotationNumber: quotationsTable.quotationNumber,
       poNumber: customerPosTable.poNumber,
       status: customerPosTable.status,
       totalAmount: customerPosTable.totalAmount,
@@ -77,6 +78,7 @@ router.get("/customer-pos", async (req, res): Promise<void> => {
     })
     .from(customerPosTable)
     .leftJoin(customersTable, eq(customerPosTable.customerId, customersTable.id))
+    .leftJoin(quotationsTable, eq(customerPosTable.quotationId, quotationsTable.id))
     .orderBy(customerPosTable.createdAt);
 
   res.json(rows.map((r) => ({ ...r, totalAmount: parseAmount(r.totalAmount) })));
@@ -126,6 +128,7 @@ router.get("/customer-pos/:id", async (req, res): Promise<void> => {
       customerId: customerPosTable.customerId,
       customerName: customersTable.name,
       quotationId: customerPosTable.quotationId,
+      quotationNumber: quotationsTable.quotationNumber,
       poNumber: customerPosTable.poNumber,
       status: customerPosTable.status,
       totalAmount: customerPosTable.totalAmount,
@@ -134,6 +137,7 @@ router.get("/customer-pos/:id", async (req, res): Promise<void> => {
     })
     .from(customerPosTable)
     .leftJoin(customersTable, eq(customerPosTable.customerId, customersTable.id))
+    .leftJoin(quotationsTable, eq(customerPosTable.quotationId, quotationsTable.id))
     .where(eq(customerPosTable.id, id));
 
   if (!po) { res.status(404).json({ error: "Customer PO not found" }); return; }
