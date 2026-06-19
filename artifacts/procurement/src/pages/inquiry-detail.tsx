@@ -1290,112 +1290,212 @@ export default function InquiryDetail() {
 
       {/* بناء عرض السعر من أسعار الموردين */}
       <Dialog open={quotationDialogOpen} onOpenChange={setQuotationDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-green-600" />
-              بناء عرض السعر للعميل
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-2">
-            <p className="text-sm text-muted-foreground mb-4">
-              اختر لكل بند المورد الذي ستعتمد سعره في عرض السعر للعميل. النجمة ⭐ تشير لأقل سعر.
-            </p>
-            {comparison && (
-              <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
-                {comparison.items.map((item) => {
-                  const itemPriceOptions = comparison.prices
-                    .filter((p) => p.inquiryItemId === item.id && p.quotedPrice != null)
-                    .map((p) => {
-                      const rfq = comparison.rfqs.find((r) => r.id === p.rfqId);
-                      return { rfqId: p.rfqId, supplierId: rfq?.supplierId ?? null, supplierName: rfq?.supplierName ?? null, unitPrice: p.quotedPrice! };
-                    });
+        <DialogContent className="max-w-3xl p-0 gap-0 overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-l from-green-700 to-green-800 px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="bg-white/15 rounded-lg p-2">
+                <FileText className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="text-white font-bold text-base">إعداد عرض السعر للعميل</h2>
+                <p className="text-green-100 text-xs mt-0.5">
+                  اختر لكل بند المورد الأنسب — النجمة{" "}
+                  <Star className="h-3 w-3 inline fill-amber-300 text-amber-300" />{" "}
+                  تدل على أقل سعر مُقدَّم
+                </p>
+              </div>
+            </div>
+          </div>
 
-                  if (itemPriceOptions.length === 0) return null;
+          {/* Summary bar */}
+          {comparison && (
+            <div className="bg-gray-50 border-b px-6 py-2.5 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                البنود المحددة:{" "}
+                <span className="font-semibold text-foreground">
+                  {Object.values(selectedPrices).filter(Boolean).length}
+                </span>{" "}
+                من {comparison.items.length}
+              </span>
+              <span className="font-bold text-green-800 text-base">
+                الإجمالي:{" "}
+                {Object.entries(selectedPrices)
+                  .filter(([, v]) => v != null)
+                  .reduce((sum, [itemId, v]) => {
+                    const it = comparison.items.find((i) => i.id === Number(itemId));
+                    return sum + (it ? it.quantity * v!.unitPrice : 0);
+                  }, 0)
+                  .toLocaleString()}{" "}
+                ج.م
+              </span>
+            </div>
+          )}
 
-                  const minPrice = Math.min(...itemPriceOptions.map((o) => o.unitPrice));
-                  const selected = selectedPrices[item.id];
-                  const totalPrice = selected ? item.quantity * selected.unitPrice : null;
+          {/* Table */}
+          {comparison && (
+            <div className="overflow-auto max-h-[55vh]">
+              <table className="w-full text-sm border-collapse">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-gray-100 border-b-2 border-gray-200">
+                    <th className="text-right px-4 py-2.5 font-semibold text-gray-700 min-w-[180px]">البند</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">الكمية</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-700 min-w-[300px]">اختيار المورد والسعر</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">سعر الوحدة</th>
+                    <th className="text-center px-3 py-2.5 font-semibold text-gray-700 whitespace-nowrap">الإجمالي</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {comparison.items.map((item, idx) => {
+                    const itemPriceOptions = comparison.prices
+                      .filter((p) => p.inquiryItemId === item.id && p.quotedPrice != null)
+                      .map((p) => {
+                        const rfq = comparison.rfqs.find((r) => r.id === p.rfqId);
+                        return { rfqId: p.rfqId, supplierId: rfq?.supplierId ?? null, supplierName: rfq?.supplierName ?? null, unitPrice: p.quotedPrice! };
+                      });
 
-                  return (
-                    <div key={item.id} className="rounded-md border p-3">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-sm">{item.description}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-xs text-muted-foreground">الكمية: {item.quantity} {item.unit ?? ""}</p>
-                            {(item as any).partNo && (
-                              <span className="font-mono text-[10px] text-blue-600">{(item as any).partNo}</span>
-                            )}
+                    if (itemPriceOptions.length === 0) return null;
+
+                    const minPrice = Math.min(...itemPriceOptions.map((o) => o.unitPrice));
+                    const selected = selectedPrices[item.id];
+                    const totalPrice = selected ? item.quantity * selected.unitPrice : null;
+                    const isSkipped = selected === null;
+
+                    return (
+                      <tr
+                        key={item.id}
+                        className={`transition-colors ${
+                          isSkipped ? "bg-gray-50 opacity-60" : selected ? "bg-green-50/40" : "bg-white hover:bg-blue-50/20"
+                        }`}
+                      >
+                        {/* Item description */}
+                        <td className="px-4 py-3">
+                          <div className="flex items-start gap-2">
+                            <span className="flex-shrink-0 w-5 h-5 rounded-full bg-gray-200 text-gray-600 text-[10px] font-bold flex items-center justify-center mt-0.5">
+                              {idx + 1}
+                            </span>
+                            <div>
+                              <p className={`font-medium leading-snug ${isSkipped ? "line-through text-gray-400" : ""}`}>
+                                {item.description}
+                              </p>
+                              {(item as any).partNo && (
+                                <span className="font-mono text-[10px] text-blue-600 bg-blue-50 px-1 rounded mt-0.5 inline-block">
+                                  {(item as any).partNo}
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                        {totalPrice != null && (
-                          <span className="text-sm font-bold text-green-700">
-                            الإجمالي: {totalPrice.toLocaleString()} ج.م
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {itemPriceOptions.map((opt) => {
-                          const isSelected = selected?.rfqId === opt.rfqId;
-                          const isLowest = opt.unitPrice === minPrice && itemPriceOptions.length > 1;
-                          return (
+                        </td>
+
+                        {/* Qty */}
+                        <td className="px-3 py-3 text-center text-muted-foreground whitespace-nowrap">
+                          {item.quantity} {item.unit ?? ""}
+                        </td>
+
+                        {/* Supplier options */}
+                        <td className="px-3 py-3">
+                          <div className="flex flex-wrap gap-1.5 justify-center">
+                            {itemPriceOptions.map((opt) => {
+                              const isSelected = selected?.rfqId === opt.rfqId;
+                              const isLowest = opt.unitPrice === minPrice && itemPriceOptions.length > 1;
+                              return (
+                                <button
+                                  key={opt.rfqId}
+                                  onClick={() => setSelectedPrices((prev) => ({
+                                    ...prev,
+                                    [item.id]: isSelected ? null : { rfqId: opt.rfqId, supplierId: opt.supplierId, unitPrice: opt.unitPrice },
+                                  }))}
+                                  className={`flex items-center gap-1 px-2.5 py-1 rounded border text-xs font-medium transition-all ${
+                                    isSelected
+                                      ? "bg-green-600 text-white border-green-600 shadow-sm"
+                                      : "bg-white border-gray-200 text-gray-700 hover:border-green-400 hover:bg-green-50"
+                                  }`}
+                                >
+                                  {isLowest && (
+                                    <Star className={`h-3 w-3 flex-shrink-0 ${isSelected ? "fill-amber-300 text-amber-300" : "fill-green-500 text-green-500"}`} />
+                                  )}
+                                  <span className="max-w-[90px] truncate">{opt.supplierName ?? `#${opt.supplierId}`}</span>
+                                  <span className={`font-bold ${isSelected ? "text-green-100" : "text-green-700"}`}>
+                                    {opt.unitPrice.toLocaleString()}
+                                  </span>
+                                </button>
+                              );
+                            })}
                             <button
-                              key={opt.rfqId}
-                              onClick={() => setSelectedPrices((prev) => ({
-                                ...prev,
-                                [item.id]: isSelected ? null : { rfqId: opt.rfqId, supplierId: opt.supplierId, unitPrice: opt.unitPrice },
-                              }))}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm transition-colors ${
-                                isSelected ? "bg-green-600 text-white border-green-600" : "border-gray-200 hover:border-green-400 hover:bg-green-50"
+                              onClick={() => setSelectedPrices((prev) => ({ ...prev, [item.id]: null }))}
+                              className={`px-2.5 py-1 rounded border text-xs transition-all ${
+                                isSkipped
+                                  ? "bg-gray-200 border-gray-300 text-gray-600 font-medium"
+                                  : "bg-white border-dashed border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-600"
                               }`}
                             >
-                              {isLowest && <Star className={`h-3 w-3 ${isSelected ? "fill-white text-white" : "fill-green-500 text-green-500"}`} />}
-                              <span>{opt.supplierName ?? `مورد #${opt.supplierId}`}</span>
-                              <span className="font-semibold">{opt.unitPrice.toLocaleString()} ج.م</span>
+                              تجاهل
                             </button>
-                          );
-                        })}
-                        <button
-                          onClick={() => setSelectedPrices((prev) => ({ ...prev, [item.id]: null }))}
-                          className={`px-3 py-1.5 rounded-full border text-sm transition-colors ${
-                            !selected ? "bg-gray-100 border-gray-300 text-gray-600" : "border-gray-200 text-muted-foreground hover:bg-gray-50"
-                          }`}
-                        >
-                          تجاهل هذا البند
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {comparison && (
-              <div className="mt-4 pt-3 border-t flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {Object.values(selectedPrices).filter(Boolean).length} بند محدد من {comparison.items.length}
-                </span>
-                <span className="font-bold text-green-700">
-                  إجمالي: {
-                    Object.entries(selectedPrices)
-                      .filter(([, v]) => v != null)
-                      .reduce((sum, [itemId, v]) => {
-                        const item = comparison.items.find((i) => i.id === Number(itemId));
-                        return sum + (item ? item.quantity * v!.unitPrice : 0);
-                      }, 0)
-                      .toLocaleString()
-                  } ج.م
-                </span>
-              </div>
-            )}
+                          </div>
+                        </td>
+
+                        {/* Unit price */}
+                        <td className="px-3 py-3 text-center">
+                          {selected ? (
+                            <span className="font-semibold text-gray-800">{selected.unitPrice.toLocaleString()} ج.م</span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+
+                        {/* Row total */}
+                        <td className="px-3 py-3 text-center">
+                          {totalPrice != null ? (
+                            <span className="font-bold text-green-700">{totalPrice.toLocaleString()} ج.م</span>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+
+                {/* Grand total footer */}
+                <tfoot>
+                  <tr className="bg-gray-50 border-t-2 border-gray-200">
+                    <td colSpan={4} className="px-4 py-3 text-right font-semibold text-gray-700">
+                      الإجمالي الكلي لعرض السعر
+                    </td>
+                    <td className="px-3 py-3 text-center font-bold text-green-800 text-base">
+                      {Object.entries(selectedPrices)
+                        .filter(([, v]) => v != null)
+                        .reduce((sum, [itemId, v]) => {
+                          const it = comparison.items.find((i) => i.id === Number(itemId));
+                          return sum + (it ? it.quantity * v!.unitPrice : 0);
+                        }, 0)
+                        .toLocaleString()}{" "}
+                      ج.م
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          {/* Footer actions */}
+          <div className="border-t bg-white px-6 py-3 flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              سيتم إنشاء مسودة عرض السعر بالبنود المحددة فقط
+            </p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setQuotationDialogOpen(false)}>إلغاء</Button>
+              <Button
+                size="sm"
+                onClick={handleCreateQuotationFromRfqs}
+                disabled={isCreatingFromRfqs}
+                className="bg-green-700 hover:bg-green-800 text-white gap-2"
+              >
+                <FileText className="h-4 w-4" />
+                {isCreatingFromRfqs ? "جارٍ الإنشاء..." : "إنشاء عرض السعر"}
+              </Button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setQuotationDialogOpen(false)}>إلغاء</Button>
-            <Button onClick={handleCreateQuotationFromRfqs} disabled={isCreatingFromRfqs} className="bg-green-600 hover:bg-green-700">
-              <FileText className="h-4 w-4 mr-2" />
-              إنشاء عرض السعر
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
